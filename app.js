@@ -526,7 +526,7 @@ async function startAudio(){
   if(!soundscape.crowRecording)void soundscape.loadCrowRecording().catch(()=>{$('status').textContent='灰背鴉錄音載入失敗，暫用合成聲。'});
   if(!soundscape.doveRecording)void soundscape.loadDoveRecording().catch(()=>{$('status').textContent='斑鳩錄音載入失敗，暫用合成聲。'});
   if(!soundscape.insectRecording)void soundscape.loadInsectRecording().then(()=>{$('status').textContent='蟋蟀實錄已就緒 · syncopika / CC0'}).catch(()=>{$('status').textContent='蟋蟀錄音載入失敗，暫用合成蟋蟀聲。'});
-  audioEnabled=true;$('soundPrompt').hidden=true;$('audio').textContent='聲音已開啟 ✓';ctx.onstatechange=()=>{const playing=audioEnabled&&ctx.state==='running';$('soundPrompt').hidden=playing;$('soundPrompt').textContent=audioEnabled?'♫ 點此恢復自然音景':'♫ 點此開啟自然音景';$('audio').textContent=playing?'聲音已開啟 ✓':'開啟聲音 ↗'};updateAudio();
+  audioEnabled=true;$('soundPrompt').hidden=true;$('audio').textContent='聲音已開啟 ✓';ctx.onstatechange=()=>{const playing=audioEnabled&&!paused&&ctx.state==='running';$('soundPrompt').hidden=playing;$('soundPrompt').textContent=audioEnabled?'♫ 點此恢復自然音景':'♫ 點此開啟自然音景';$('audio').textContent=playing?'聲音已開啟 ✓':'開啟聲音 ↗'};updateAudio();
   if(soundscape.rainRecording)$('status').textContent='自然雨聲錄音已就緒 · Ylmir / CC0';
   if(!soundscape.rainRecording){
     $('status').textContent='正在載入自然雨聲錄音…';
@@ -536,7 +536,7 @@ async function startAudio(){
 }
 function updateAudio(){
   if(!soundscape)return;
-  soundscape.update({enabled:audioEnabled,volume:Number($('volume').value),rain,wind:wind+gust,motion:windMotion(),motionTime:time,birds:time<birdUntil||rainWildlife()>.02,insects:time<insectUntil||rainWildlife()>.02,crowSources:crows.map(b=>({id:b.id,onScreen:b.x>=-35&&b.x<=W+35,pan:Math.max(-1,Math.min(1,b.x/W*2-1))})),birdPan:birdCenter()*2-1,insectPan:insectCenter*2-1,windPan:windPan(),birdNight:nightBlend,naturalBirds:mode==='auto',birdFrequencies:{...birdFrequencies},birdVolumes:{...birdVolumes},birdCount:Number($('birdCount').value),birdVolume:(1-nightBlend*.85)*(time<birdUntil?1:Math.sqrt(rainWildlife())),insectDensity:Number($('insectDensity').value),insectVolumes:{...insectVolumes},insectVolume:1*(.35+.65*nightBlend)*(time<insectUntil?1:Math.sqrt(rainWildlife()))});
+  soundscape.update({enabled:audioEnabled&&!paused,volume:Number($('volume').value),rain,wind:wind+gust,motion:windMotion(),motionTime:time,birds:time<birdUntil||rainWildlife()>.02,insects:time<insectUntil||rainWildlife()>.02,crowSources:crows.map(b=>({id:b.id,onScreen:b.x>=-35&&b.x<=W+35,pan:Math.max(-1,Math.min(1,b.x/W*2-1))})),birdPan:birdCenter()*2-1,insectPan:insectCenter*2-1,windPan:windPan(),birdNight:nightBlend,naturalBirds:mode==='auto',birdFrequencies:{...birdFrequencies},birdVolumes:{...birdVolumes},birdCount:Number($('birdCount').value),birdVolume:(1-nightBlend*.85)*(time<birdUntil?1:Math.sqrt(rainWildlife())),insectDensity:Number($('insectDensity').value),insectVolumes:{...insectVolumes},insectVolume:1*(.35+.65*nightBlend)*(time<insectUntil?1:Math.sqrt(rainWildlife()))});
 }
 function chirp(){if(soundscape&&audioEnabled)soundscape.birds()}
 function thunder(){
@@ -562,13 +562,13 @@ for(const id of ['birdCount','insectDensity'])$(id).oninput=()=>{
 };
 function showInsectControls(){const type=$('insectType').value;$('insectVolume').value=insectVolumes[type];$('insectVolumeLabel').textContent=insectNames[type]+'音量';$('insectVolumeValue').textContent=Math.round(insectVolumes[type]*100)+'%';$('insectMixSummary').textContent=Object.keys(insectVolumes).map(t=>insectNames[t]+' '+Math.round(insectVolumes[t]*100)+'%').join(' · ')}
 $('insectType').onchange=showInsectControls;
-$('insectVolume').oninput=()=>{if(Number($('insectVolume').value)>0&&!audioEnabled)void startAudio().catch(()=>{$('status').textContent='請按開啟聲音以播放。'});insectVolumes[$('insectType').value]=Number($('insectVolume').value);showInsectControls();updateAudio();if(insectVolumes[$('insectType').value]>0){insectUntil=Math.max(insectUntil,time+12);if(soundscape)soundscape.insects(12)}};
+$('insectVolume').oninput=()=>{insectVolumes[$('insectType').value]=Number($('insectVolume').value);showInsectControls();updateAudio();if(insectVolumes[$('insectType').value]>0){insectUntil=Math.max(insectUntil,time+12);if(soundscape)soundscape.insects(12)}};
 showInsectControls();
 function showBirdControls(){const type=$('birdType').value;$('birdFrequency').value=birdFrequencies[type];$('birdFrequencyValue').textContent=birdFrequencies[type]===0?'關閉':birdFrequencies[type]<.3?'偶爾':birdFrequencies[type]<.7?'中等':'頻繁';$('birdVolume').value=birdVolumes[type];$('birdVolumeLabel').textContent=birdNames[type]+'音量';$('birdVolumeValue').textContent=Math.round(birdVolumes[type]*100)+'%';$('birdMixSummary').textContent=Object.keys(birdVolumes).map(t=>birdNames[t]+' '+Math.round(birdVolumes[t]*100)+'%').join(' · ')}
 $('birdType').onchange=showBirdControls;
-$('birdVolume').oninput=()=>{if(Number($('birdVolume').value)>0&&!audioEnabled)void startAudio().catch(()=>{$('status').textContent='請按開啟聲音以播放。'});birdVolumes[$('birdType').value]=Number($('birdVolume').value);showBirdControls();updateAudio();if(birdVolumes[$('birdType').value]>0){birdUntil=Math.max(birdUntil,time+12);if(soundscape)soundscape.birds(12)}};
+$('birdVolume').oninput=()=>{birdVolumes[$('birdType').value]=Number($('birdVolume').value);showBirdControls();updateAudio();if(birdVolumes[$('birdType').value]>0){birdUntil=Math.max(birdUntil,time+12);if(soundscape)soundscape.birds(12)}};
 showBirdControls();
-function setMode(m){mode=m;manualThunderHistory=[];manualRainTarget=null;$('auto').classList.toggle('selected',m==='auto');$('manual').classList.toggle('selected',m==='manual');$('auto').setAttribute('aria-pressed',String(m==='auto'));$('manual').setAttribute('aria-pressed',String(m==='manual'));$('modeHelp').textContent=m==='auto'?'下雨 → 漸停 → 鳥語 → 蟲鳴 → 靜息，自然循環。':'按下事件按鈕，或開啟麥克風。音量超過風聲門檻觸發陣風，超過較高雷聲門檻觸發雷鳴；15 秒內觸發 3 次雷鳴會轉為下雨。';nextEvent=time+10;if(m==='auto')resetAuto()} $('auto').onclick=()=>setMode('auto');$('manual').onclick=()=>{setMode('manual');void startMic()};document.querySelectorAll('[data-event]').forEach(b=>b.onclick=async()=>{try{if(!audioEnabled||ctx?.state!=='running')await startAudio();trigger(b.dataset.event)}catch(e){$('status').textContent='聲音無法啟動，請再按一次開啟聲音。'}});
+function setMode(m){mode=m;manualThunderHistory=[];manualRainTarget=null;$('auto').classList.toggle('selected',m==='auto');$('manual').classList.toggle('selected',m==='manual');$('auto').setAttribute('aria-pressed',String(m==='auto'));$('manual').setAttribute('aria-pressed',String(m==='manual'));$('modeHelp').textContent=m==='auto'?'下雨 → 漸停 → 鳥語 → 蟲鳴 → 靜息，自然循環。':'按下事件按鈕，或開啟麥克風。音量超過風聲門檻觸發陣風，超過較高雷聲門檻觸發雷鳴；15 秒內觸發 3 次雷鳴會轉為下雨。';nextEvent=time+10;if(m==='auto')resetAuto()} $('auto').onclick=()=>setMode('auto');$('manual').onclick=()=>{setMode('manual');void startMic()};document.querySelectorAll('[data-event]').forEach(b=>b.onclick=async()=>{try{if(paused)return;trigger(b.dataset.event)}catch(e){$('status').textContent='聲音無法啟動，請再按一次開啟聲音。'}});
 canvas.onclick=e=>{if(e.clientY>H*.43){ripples.push({x:e.clientX,y:e.clientY,age:0});if(soundscape&&audioEnabled)soundscape.waterDrop(.5,{pan:e.clientX/W*2-1,large:true,depth:.8,visual:false})}};
 // Both values use the same RMS scale: 0–0.5 maps to 0–100%.
 function showInputLevel(rms=0){
@@ -622,7 +622,7 @@ if(rms<windThreshold*.75)micArmed=true;if(rms<thunderThreshold*.75)thunderArmed=
 if(mode==='manual'){
   if(thunderArmed&&rms>=thunderThreshold&&stamp-lastThunderTrigger>=1800){lastThunderTrigger=lastTrigger=stamp;thunderArmed=false;micArmed=false;trigger('thunder')}
   else if(micArmed&&rms>=windThreshold&&rms<thunderThreshold&&stamp-lastTrigger>=1800){lastTrigger=stamp;micArmed=false;trigger('wind')}
-}previousLevel=previousLevel*.8+rms*.2}updateAudio();requestAnimationFrame(frame)}resetAuto();draw(0);requestAnimationFrame(frame);$('pause').textContent=paused?'繼續畫面':'暫停畫面';$('pause').onclick=()=>{paused=!paused;$('pause').textContent=paused?'繼續畫面':'暫停畫面'};$('fullscreen').onclick=async()=>{try{if(document.fullscreenElement)await document.exitFullscreen();else await document.documentElement.requestFullscreen()}catch(e){$('status').textContent='此瀏覽器不支援全螢幕。'}};addEventListener('pagehide',stopMic);
+}previousLevel=previousLevel*.8+rms*.2}updateAudio();requestAnimationFrame(frame)}resetAuto();draw(0);requestAnimationFrame(frame);$('pause').textContent=paused?'繼續播放':'暫停畫面與聲音';$('pause').onclick=()=>{paused=!paused;$('pause').textContent=paused?'繼續播放':'暫停畫面與聲音';updateAudio();$('audioHealth').textContent=paused?'畫面與聲音已暫停':audioEnabled?'音景已恢復':'聲音已關閉'};$('fullscreen').onclick=async()=>{try{if(document.fullscreenElement)await document.exitFullscreen();else await document.documentElement.requestFullscreen()}catch(e){$('status').textContent='此瀏覽器不支援全螢幕。'}};addEventListener('pagehide',stopMic);
 
 $('togglePanel').onclick=()=>{
   const panel=$('parameterPanel');panel.hidden=!panel.hidden;
@@ -636,7 +636,7 @@ $('birdFrequency').oninput=()=>{const type=$('birdType').value,value=Number($('b
 
 $('resumeAudio').onclick=async()=>{try{await startAudio();soundscape.birds(12);soundscape.insects(12);$('status').textContent='已重新啟動音景。'}catch(e){$('audioHealth').textContent='啟動失敗，請再試一次';}};
 setInterval(()=>{
-  if(!ctx||!audioEnabled){$('audioHealth').textContent='聲音尚未啟動';return;}
+  if(paused){$('audioHealth').textContent='畫面與聲音已暫停';return;}if(!ctx||!audioEnabled){$('audioHealth').textContent='聲音已關閉';return;}
   if(ctx.state!=='running'){$('audioHealth').textContent='播放已暫停，請按恢復聲音';return;}
   soundscape.monitor.getFloatTimeDomainData(soundscape.monitorData);
   const rms=Math.sqrt(soundscape.monitorData.reduce((sum,v)=>sum+v*v,0)/soundscape.monitorData.length);
