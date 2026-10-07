@@ -382,6 +382,9 @@ class LakeSoundscape {
   update({enabled,volume,rain,wind,motion,motionTime,birds,insects,crowSources=[],birdPan=0,insectPan=0,windPan=0,birdNight=0,naturalBirds=true,birdFrequencies={sparrow:.5,dove:.5,crow:.2},birdVolumes={sparrow:.65,dove:.3,crow:.3},birdCount=5,birdVolume=.65,insectDensity=.6,insectVolume=.6,insectVolumes={recorded:.6,cricket:0}}) {
     const now=this.ctx.currentTime;
     this.active=enabled;
+    this.output.gain.cancelScheduledValues(now);
+    if(!enabled)this.output.gain.setValueAtTime(0,now);
+    else this.output.gain.setTargetAtTime(volume*.8,now,.08);
     for(const panner of this.crowPanners){const bird=crowSources.find(b=>b.id===panner._crowId);if(bird)panner.pan.setTargetAtTime(bird.pan,now,.04);if(panner._distanceGain&&!panner._fading&&(!bird||!bird.onScreen)){panner._fading=true;const gain=panner._distanceGain.gain;gain.cancelScheduledValues(now);gain.setValueAtTime(Math.max(.0001,gain.value),now);gain.linearRampToValueAtTime(0,now+3.5);panner._crowSource.stop(now+3.55);}}
     const realInsects=!!this.insectRecording;
     if(this.insectRecording){
@@ -396,7 +399,7 @@ class LakeSoundscape {
     this.insectBus.gain.setTargetAtTime(insectDensity>0?Math.pow(insectVolume,1.6)*8:0,now,.12);
     if(now-this.lastUpdate<.075)return;
     this.lastUpdate=now;
-    this.output.gain.setTargetAtTime(enabled?volume*.8:0,now,.3);
+
     const swell=.78+.15*Math.sin(now*.31)+.07*Math.sin(now*.91+1.6);
     const flow=Math.min(1.6,Math.max(0,motion));
     const recorded=!!this.rainRecording;
