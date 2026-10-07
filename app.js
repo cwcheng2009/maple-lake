@@ -163,7 +163,7 @@ function tree(x,y,s,t,reflection=false){
   }
   c.restore();
 }
-let dryLight=0,autoLightFrom=0;
+let dryLight=0,autoLightFrom=0,rainbowOpacity=0;
 const autoPhases=['rain','clearing','birds','insects','quiet'];
 let autoPhase=0,autoStarted=0,autoDuration=24,autoRain=.25,autoRainFrom=.25;
 function resetAuto(){
@@ -420,17 +420,24 @@ function drawSunshine(){
   for(let i=0;i<5;i++){c.beginPath();c.moveTo(x-7+i*10,y);c.lineTo(x-160+i*75,H*.9);c.lineTo(x-105+i*75,H*.9);c.closePath();c.fill()}
   c.restore();
 }
-function drawRainbow(){
-  if(dryLight<.15)return;
-  c.save();c.globalAlpha=(dryLight-.15)*.3*Math.pow(1-nightBlend,2);c.lineWidth=Math.max(2,H*.007);c.shadowBlur=3;
+function drawRainbow(dt){
+  // Keep the arc shallow on portrait screens instead of stretching it vertically.
+  const visibility=Math.max(0,Math.min(1,(dryLight-.15)/.85));
+  const target=visibility*visibility*(3-2*visibility)*.255*Math.pow(1-nightBlend,2);
+  const fadeSeconds=target>rainbowOpacity?3:5;
+  rainbowOpacity+=(target-rainbowOpacity)*(1-Math.exp(-dt/fadeSeconds));
+  if(rainbowOpacity<.0001)return;
+  const radiusX=W*.38,radiusY=Math.min(H*.34,radiusX*.65);
+  const bandWidth=Math.max(1.2,Math.min(H*.007,radiusY*.024));
+  c.save();c.globalAlpha=rainbowOpacity;c.lineWidth=bandWidth;c.shadowBlur=3;
   const colors=['#ed7774','#f5ae6c','#f5db89','#9bc894','#81bccd','#939dce','#b89aca'];
   colors.forEach((color,i)=>{
     c.strokeStyle=color;c.shadowColor=color;c.beginPath();
-    c.ellipse(W*.48,H*.47,W*.38-i*c.lineWidth,H*.34-i*c.lineWidth,0,Math.PI,Math.PI*2);c.stroke();
+    c.ellipse(W*.48,H*.47,radiusX-i*bandWidth,radiusY-i*bandWidth,0,Math.PI,Math.PI*2);c.stroke();
   });c.restore();
 }
 function draw(dt){if(mode==='manual'&&manualRainTarget!==null){rain+=(manualRainTarget-rain)*(1-Math.exp(-dt/2));if(Math.abs(rain-manualRainTarget)<.002){rain=manualRainTarget;manualRainTarget=null}$('rain').value=rain}time+=dt;advanceDay(dt);advanceAuto();advanceCrows(dt);advanceDucks(dt);if(mode!=='auto')dryLight+=( (rain<.04?1:0)-dryLight)*(1-Math.exp(-dt/3));const horizon=H*.43;gust=Math.max(0,gust-dt*.12);advanceWind(dt);advanceTreeSway(dt);flash=Math.max(0,flash-dt*2);const sky=c.createLinearGradient(0,0,0,H);sky.addColorStop(0,skyTone([119,143,137],[111,170,192]));sky.addColorStop(.42,skyTone([192,188,155],[224,219,177]));sky.addColorStop(.44,nightColor([113,139,125],[31,51,68]));sky.addColorStop(1,nightColor([25,63,64],[7,22,38]));c.fillStyle=sky;c.fillRect(0,0,W,H);drawClouds(dt);drawSunshine();for(let n=0;n<3;n++){c.fillStyle=['#70867b','#617b71','#47665d'][n];c.beginPath();c.moveTo(0,horizon);for(let x=0;x<=W+10;x+=10)c.lineTo(x,horizon-35-n*18-Math.sin(x/W*9+n)*25-Math.cos(x/W*19+n)*12);c.lineTo(W,horizon+20);c.fill()}
-drawRainbow();
+drawRainbow(dt);
 for(const t of trees){const x=t.x*W,y=horizon+t.y*24,s=(.38+t.y*.2)*Math.max(.8,W/1500);c.globalAlpha=.2;tree(x,y+9,s,t,true);c.globalAlpha=1;tree(x,y,s,t)}
 // Small surface waves persist even without rain or strong wind.
 const waterMotion=1.6+windMotion()*2.4;
