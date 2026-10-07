@@ -13,7 +13,7 @@ function advanceWind(dt){
   const target=Math.max(0,wind*(.75+.32*Math.sin(time*.72)+.18*Math.sin(time*1.57+2))+gust*(.9+.18*Math.sin(time*1.6)));
   windFlow+=(target-windFlow)*(1-Math.exp(-dt/.24));
 }
-let rainRippleBudget=0;
+let rainRippleBudget=0,leafEmissionBudget=0,nextLeafEmission=-Math.log(Math.max(.000001,Math.random()));
 const ripples=[],leaves=[],trees=[];let seed=4821;function rand(){seed=(seed*16807)%2147483647;return(seed-1)/2147483646}for(let i=0;i<78;i++){
   const t={x:rand(),y:rand(),size:.55+rand()*.7,color:rand(),phase:rand()*6.28,height:.72+rand()*.75,width:.7+rand()*.65,lean:(rand()-.5)*20,crown:[]};
   const count=12+Math.floor(rand()*8);
@@ -504,7 +504,18 @@ drawCabin();drawDucks(false);
 // Near banks frame the open water.
 for(const bank of leftBank)tree(bank.x*W,bank.y*H,bank.size*Math.max(.7,W/1400),trees[bank.tree]);
 for(let i=0;i<7;i++)tree(W-i*W*.028,H*.65+i*H*.055,(1.15+i*.13)*Math.max(.7,W/1400),trees[i+9]);
-if(Math.random()<dt*(3+wind*10+gust*25))leaves.push({x:Math.random()*W,y:Math.random()*H*.5,v:20+Math.random()*40,r:Math.random()*6,size:.65+Math.random()*.65,color:['#db7b35','#ba4527','#e8a34b','#a73525'][Math.floor(Math.random()*4)]});for(let i=leaves.length-1;i>=0;i--){const l=leaves[i];l.x+=dt*(20+wind*75+gust*120);l.y+=l.v*dt;l.r+=dt*2;drawMapleLeaf(l);if(l.y>H||l.x>W+20)leaves.splice(i,1)}
+// Random emission follows the same wind field as sound and tree movement.
+const leafWind=Math.min(1.6,Math.max(0,windMotion()));
+leafEmissionBudget+=dt*(.12+50*Math.pow(leafWind,1.7));
+while(leafEmissionBudget>=nextLeafEmission){
+  leafEmissionBudget-=nextLeafEmission;
+  nextLeafEmission=-Math.log(Math.max(.000001,Math.random()));
+  if(leaves.length<250)leaves.push({x:Math.random()*W,y:Math.random()*H*.5,v:20+Math.random()*40,r:Math.random()*6,size:.65+Math.random()*.65,color:['#db7b35','#ba4527','#e8a34b','#a73525'][Math.floor(Math.random()*4)]});
+}
+for(let i=leaves.length-1;i>=0;i--){
+  const l=leaves[i];l.x+=dt*(8+leafWind*100);l.y+=l.v*dt;l.r+=dt*(.7+leafWind*2);drawMapleLeaf(l);
+  if(l.y>H||l.x>W+20)leaves.splice(i,1);
+}
 drawRainStreaks(dt);
 drawNight();
 drawDucks(true);drawCrows();if(time<birdUntil||rainWildlife()>.08&&nightBlend<.8){for(let i=0;i<Number($('birdCount').value);i++){let x=((time*48+i*49)% (W+200))-100;const y=H*.17+Math.sin(time+i)*20;const audible=Object.keys(birdVolumes).filter(t=>birdVolumes[t]>0);if(!audible.length)continue;const type=audible[i%audible.length];if(type==='crow'||birdFrequencies[type]===0)continue;x=((time*48+i*49)%(W+200+240*(1/birdFrequencies[type]-1)))-100;if(x>W+50)continue;const span=type==='crow'?13:type==='dove'?10:7;c.strokeStyle=type==='crow'?'#151c20':'#293e38';c.lineWidth=type==='crow'?3:2;c.beginPath();c.moveTo(x-span,y+Math.sin(time*(type==='crow'?5:9))*4);c.lineTo(x,y);c.lineTo(x+span,y+Math.sin(time*(type==='crow'?5:9))*4);c.stroke()}}
