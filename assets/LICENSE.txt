@@ -1,0 +1,35 @@
+Rain recording: Rain (loopable)
+Author: Ylmir
+Source: https://opengameart.org/content/rain-loopable
+Original download: https://opengameart.org/sites/default/files/Rain%20MP3.zip
+Included file: 3.mp3, renamed rain.mp3 (audio unchanged).
+License: CC0 1.0 Universal
+https://creativecommons.org/publicdomain/zero/1.0/
+Source page checked: 2026-10-07
+The source describes recordings made at the author's window and processed for stereo playback.
+
+Cricket recording: cricket sounds
+Author: syncopika
+Source: https://opengameart.org/content/cricket-sounds
+Download: https://opengameart.org/sites/default/files/cricketsounds090613_0.mp3
+Included as: crickets.mp3 (file unchanged; playback applies a loop crossfade and high-pass filter).
+License: CC0 1.0 Universal, https://creativecommons.org/publicdomain/zero/1.0/
+Identification: author labels it crickets, recorded in their backyard; exact species not identified.
+Source checked: 2026-10-07
+
+Dove recording: dove.mp3
+Title: Australian morning birds
+Author: elle-trudgett
+Source: https://freesound.org/people/elle-trudgett/sounds/147349/
+Audio: https://cdn.freesound.org/previews/147/147349_197046-hq.mp3
+License: CC0 1.0 Universal (https://creativecommons.org/publicdomain/zero/1.0/)
+Uploader describes a spotted turtle dove and smaller birds. Background birds are retained. Original file unmodified; runtime volume normalization and short edge fades only.
+
+Crow recording: crow.mp3
+Title: Hooded Crow: Cawing
+Species: Hooded Crow (灰背鴉), identified by the uploader.
+Author: Mish7913
+Source: https://freesound.org/people/Mish7913/sounds/741366/
+Audio: https://cdn.freesound.org/previews/741/741366_16104671-hq.mp3
+License: CC0 1.0 Universal (https://creativecommons.org/publicdomain/zero/1.0/)
+Original file unmodified; runtime volume normalization, spatial panning and short edge fades only.
