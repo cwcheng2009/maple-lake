@@ -222,12 +222,13 @@ function skyTone(overcast,sunny){
   const tone=day.map((v,i)=>v+(dusk[i]-v)*twilight);
   return nightColor(tone,overcast[0]<150?[12,24,47]:[43,57,76]);
 }
+const duckShelterLayout={left:[{x:.27,y:.60},{x:.32,y:.65},{x:.37,y:.70}],right:[{x:.64,y:.63},{x:.74,y:.615},{x:.84,y:.64}]};
 const lakeDucks=Array.from({length:3},(_,i)=>({state:'swim',age:0,x:.42+i*.06,y:.62+i*.025,phase:Math.random()*6.28,direction:i%2?-1:1,speed:.016+Math.random()*.010,tempo:.12+Math.random()*.18,wingTempo:8+Math.random()*5,flightDuration:3+Math.random()*2,lane:.60+i*.033,behavior:'swim',nextBehavior:2+Math.random()*7,headTilt:0}));
 const duckWakes=[];
 function advanceDucks(dt){
   for(let i=duckWakes.length-1;i>=0;i--){duckWakes[i].age+=dt;if(duckWakes[i].age>2.8)duckWakes.splice(i,1);}
   for(let i=0;i<lakeDucks.length;i++){
-    const bird=lakeDucks[i];bird.age+=dt;
+    const bird=lakeDucks[i],leftShelter=duckShelterLayout.left[i],rightShelter=duckShelterLayout.right[i];bird.age+=dt;
     if((bird.state==='swim'||bird.state==='return')&&rain>.1){const wasFlying=bird.state==='return';bird.state='leave';bird.age=wasFlying?0:-(i*.3+Math.random()*1.1);bird.fromX=bird.x;bird.fromY=bird.y;}
     if(bird.state==='away'&&rain<.025){bird.state='return';bird.age=-(i*.4+Math.random()*1.4);bird.targetX=.4+Math.random()*.2;bird.targetY=bird.lane;}
     if(bird.state==='leave'){const f=Math.max(0,Math.min(1,bird.age/bird.flightDuration));bird.x=bird.fromX+(1.15-bird.fromX)*f;bird.y=bird.fromY+(-.1-bird.fromY)*f;if(f===1)bird.state='away';}
@@ -251,16 +252,18 @@ function advanceDucks(dt){
       else {
         const speed=Math.max(bird.speed,4/W);
         bird.x+=dt*bird.direction*speed*paddle;
-        if(bird.x>=.72||bird.x<=.30){bird.x=Math.max(.30,Math.min(.72,bird.x));bird.direction*=-1;bird.turnTime=.35+Math.random()*.35;bird.behavior='swim';}
+        if(bird.x>=rightShelter.x||bird.x<=leftShelter.x){bird.x=Math.max(leftShelter.x,Math.min(rightShelter.x,bird.x));bird.direction*=-1;bird.turnTime=.35+Math.random()*.35;bird.behavior='swim';}
       }
       bird.wakeClock=(bird.wakeClock??0)+dt;
       if(bird.wakeClock>.14+bird.tempo*.25){
         bird.wakeClock=0;duckWakes.push({x:bird.x,y:bird.y,age:0,direction:bird.direction,phase:bird.phase});
       }
 
-      const edgeDistance=Math.min(bird.x-.30,.72-bird.x);
+      const edgeDistance=Math.min(bird.x-leftShelter.x,rightShelter.x-bird.x);
       const openWater=Math.max(0,Math.min(1,edgeDistance/.075));
-      const targetY=bird.lane+openWater*((bird.driftTarget??0)+Math.sin(time*bird.tempo+bird.phase)*.008);
+      const progress=Math.max(0,Math.min(1,(bird.x-leftShelter.x)/(rightShelter.x-leftShelter.x)));
+      const routeY=leftShelter.y+(rightShelter.y-leftShelter.y)*progress;
+      const targetY=routeY+openWater*((bird.driftTarget??0)+Math.sin(time*bird.tempo+bird.phase)*.008);
       bird.y+=(targetY-bird.y)*(1-Math.exp(-dt/1.2));
     }
   }
@@ -304,7 +307,7 @@ const reedPatches=Array.from({length:6},(_,i)=>{
 function drawDuckShelters(){
  const scale=Math.max(.6,Math.min(1,W/950));
  for(const side of [.30,.72])for(let i=0;i<3;i++){
-  const left=side===.30,index=(left?0:3)+i,x=side*W,y=(.60+i*.033)*H,patch=reedPatches[index];
+  const left=side===.30,index=(left?0:3)+i,position=duckShelterLayout[left?'left':'right'][i],x=position.x*W,y=position.y*H,patch=reedPatches[index];
   c.save();c.translate(x,y);c.scale(scale,scale);
   c.fillStyle=nightColor([61,77,65],[18,31,33]);c.beginPath();c.ellipse(0,5,37,7,0,0,Math.PI*2);c.fill();
   c.fillStyle=nightColor([72,82,69],[23,35,36]);c.beginPath();c.moveTo(-32,5);c.bezierCurveTo(-35,-10,-22,-16,-10,-20);c.bezierCurveTo(5,-25,27,-18,32,-5);c.quadraticCurveTo(38,8,-32,5);c.fill();
