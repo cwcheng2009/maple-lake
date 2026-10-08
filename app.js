@@ -296,31 +296,40 @@ function drawDucks(flying){
   }
 }
 // Reed-covered rocks conceal the ducks while they change direction.
-const reedPatches=Array.from({length:6},(_,i)=>Array.from({length:28},(_,j)=>{
- const n=Math.abs(Math.sin(i*73.7+j*19.31)*43758.5453)%1;
- const m=Math.abs(Math.sin(i*11.2+j*37.73)*15321.914)%1;
- return {x:(n-.5)*68,h:22+m*44,lean:(n-.5)*19,phase:m*6.28,seed:n};
-}));
+// Each bank has a distinct, stable arrangement; wind deforms whole stems and leaves.
+const reedPatches=Array.from({length:6},(_,i)=>{
+ const count=[19,13,16,11,21,14][i],spread=[66,48,58,52,76,60][i];
+ return Array.from({length:count},()=>({x:(Math.random()-.5)*spread,h:20+Math.random()*(i<3?40:29),lean:(Math.random()-.5)*14,phase:Math.random()*6.28,flex:.7+Math.random()*.8,seed:Math.random()})).sort((a,b)=>b.h-a.h);
+});
 function drawDuckShelters(){
  const scale=Math.max(.6,Math.min(1,W/950));
  for(const side of [.30,.72])for(let i=0;i<3;i++){
-  const x=side*W,y=(.60+i*.033)*H,patch=reedPatches[(side===.30?0:3)+i];
+  const index=(side===.30?0:3)+i,x=side*W,y=(.60+i*.033)*H,patch=reedPatches[index];
   c.save();c.translate(x,y);c.scale(scale,scale);
-  c.fillStyle=nightColor([61,77,65],[18,31,33]);c.beginPath();c.ellipse(0,5,37,9,0,0,Math.PI*2);c.fill();
-  // Irregular mossy stones provide solid occlusion beneath fine leaves.
+  c.fillStyle=nightColor([61,77,65],[18,31,33]);c.beginPath();c.ellipse(0,5,37,7,0,0,Math.PI*2);c.fill();
   c.fillStyle=nightColor([72,82,69],[23,35,36]);c.beginPath();c.moveTo(-32,5);c.bezierCurveTo(-35,-10,-22,-16,-10,-20);c.bezierCurveTo(5,-25,27,-18,32,-5);c.quadraticCurveTo(38,8,-32,5);c.fill();
   c.strokeStyle=nightColor([100,112,82],[36,49,42]);c.lineWidth=.8;c.beginPath();c.moveTo(-23,-8);c.quadraticCurveTo(-8,-19,8,-16);c.stroke();
   for(const reed of patch){
-   const bend=reed.lean+Math.sin(time*(.65+reed.seed*.5)+reed.phase)*windMotion()*7,tip=reed.x+bend;
-   c.strokeStyle=nightColor([82+reed.seed*35,96+reed.seed*26,54],[28,43,35]);c.lineWidth=.55+reed.seed*.4;
-   c.beginPath();c.moveTo(reed.x,4);c.bezierCurveTo(reed.x,-reed.h*.25,tip-bend*.3,-reed.h*.72,tip,-reed.h);c.stroke();
-   for(const sign of [-1,1]){const yy=-reed.h*(sign===1?.42:.65),xx=reed.x+bend*.4;
-    c.fillStyle=nightColor([106+reed.seed*24,111,61],[36,48,35]);c.beginPath();c.moveTo(xx,yy);c.quadraticCurveTo(xx+sign*14,yy-7,xx+sign*(18+reed.seed*10),yy-12);c.quadraticCurveTo(xx+sign*10,yy-3,xx,yy+1);c.fill();
+   const force=windMotion(),bend=reed.lean+force*reed.flex*(11+Math.sin(time*(.9+reed.seed*.8)+reed.phase)*9+Math.sin(time*2.1+reed.phase)*3);
+   const stemX=t=>reed.x+bend*t*t,stemY=t=>4-reed.h*t;
+   c.strokeStyle=nightColor([91+reed.seed*30,103+reed.seed*20,57],[29,44,35]);c.lineWidth=.65+reed.seed*.45;
+   c.beginPath();c.moveTo(reed.x,4);c.bezierCurveTo(reed.x,4-reed.h*.34,reed.x+bend*.45,4-reed.h*.73,stemX(1),stemY(1));c.stroke();
+   // Narrow, tapered reed blades rise then arch downward, attached to the moving stem.
+   for(let k=0;k<3;k++){
+    const t=.3+k*.2,xx=stemX(t),yy=stemY(t),sign=(k+(reed.seed>.5?1:0))%2?1:-1;
+    const length=12+reed.seed*13-k*2,flutter=Math.sin(time*(1.8+reed.seed)+reed.phase+k)*force*4;
+    c.fillStyle=nightColor([106+reed.seed*25,115+reed.seed*15,65],[34,48,36]);c.beginPath();c.moveTo(xx,yy);
+    c.bezierCurveTo(xx+sign*length*.35+force*3,yy-9,xx+sign*length*.8+force*5,yy-10+flutter,xx+sign*length+force*6,yy-1+flutter);
+    c.bezierCurveTo(xx+sign*length*.66+force*3,yy-6+flutter,xx+sign*length*.2,yy-4,xx,yy);c.fill();
    }
-   if(reed.seed>.55){c.save();c.translate(tip,-reed.h);c.rotate(bend*.015);c.fillStyle=nightColor([166,140,96],[63,58,43]);
-    for(let k=0;k<9;k++){c.beginPath();c.ellipse((k%2?1:-1)*(1+k*.18),-k*1.4,2.5-k*.15,1.1,k%2?.6:-.6,0,Math.PI*2);c.fill();}c.restore();}
-  }
-  c.restore();
+   if(reed.seed>.48){
+    c.save();c.translate(stemX(1),stemY(1));c.rotate(-bend/reed.h*.55);
+    c.strokeStyle=nightColor([159,137,98],[59,55,42]);c.lineWidth=.55;c.beginPath();c.moveTo(0,2);c.lineTo(0,-15);c.stroke();
+    for(let k=0;k<10;k++){const t=k/10,width=1+Math.sin(t*Math.PI)*3.5;
+     c.strokeStyle=nightColor([170+reed.seed*20,150,111],[66,61,47]);c.beginPath();c.moveTo(0,-k*1.4);c.quadraticCurveTo(-width,-k*1.4-2,-width*.7,-k*1.4-4);c.moveTo(0,-k*1.4);c.quadraticCurveTo(width,-k*1.4-1,width*.8,-k*1.4-3);c.stroke();
+    }c.restore();
+   }
+  }c.restore();
  }
 }
 function drawCabin(c=canvas.getContext('2d')){
