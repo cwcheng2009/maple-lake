@@ -642,3 +642,21 @@ setInterval(()=>{
   const rms=Math.sqrt(soundscape.monitorData.reduce((sum,v)=>sum+v*v,0)/soundscape.monitorData.length);
   $('audioHealth').textContent=rms>.00001?'音景輸出 '+Math.round(20*Math.log10(rms))+' dBFS':'播放中 · 目前音景安靜';
 },500);
+
+// Presets adjust the environment without starting sound or requesting a microphone.
+$('preset').onchange=()=>{
+ const presets={morning:{day:'day',rain:0,wind:.12,birds:[.65,.24,.12],bugs:.18},breeze:{day:'day',rain:0,wind:.48,birds:[.5,.2,.1],bugs:.25},night:{day:'night',rain:0,wind:.08,birds:[0,0,0],bugs:.65}};
+ const p=presets[$('preset').value];if(!p)return;
+ setMode('manual');manualRainTarget=null;rain=p.rain;wind=p.wind;gust=0;dryLight=1;
+ $('dayMode').value=p.day;$('rain').value=rain;$('wind').value=wind;
+ ['sparrow','dove','crow'].forEach((type,i)=>birdVolumes[type]=p.birds[i]);insectVolumes.recorded=p.bugs;insectVolumes.cricket=0;
+ birdUntil=time+12;insectUntil=time+12;showBirdControls();showInsectControls();updateAudio();
+ $('modeHelp').textContent='預設音景持續播放；可調整參數，或切回自動流轉。';
+ $('status').textContent=$('preset').selectedOptions[0].textContent+' · 按開啟聲音聆聽';
+};
+if(matchMedia('(max-width:700px)').matches){$('parameterPanel').hidden=true;$('togglePanel').textContent='顯示參數';$('togglePanel').setAttribute('aria-expanded','false');}
+setInterval(()=>{
+ $('audio').setAttribute('aria-pressed',String(audioEnabled));
+ $('audio').textContent=audioEnabled?'靜音音景':'開啟聲音';
+ $('pause').textContent=paused?'繼續播放':'暫停播放';
+},200);
