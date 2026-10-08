@@ -29,17 +29,21 @@ let stormEnd=0;
 function makeBolt(x){
   const type=Math.floor(Math.random()*3),steps=9+Math.floor(Math.random()*13);
   const top=Math.random()*.09,bottom=.29+Math.random()*.12;
-  const drift=(Math.random()-.5)*(type===2?.38:.15),jag=type===1?.065:.025;
-  const points=[[x,top]];
+  // Small correlated changes avoid alternating wide zigzags, including on narrow screens.
+  const drift=(Math.random()-.5)*Math.min(.12,H/W*.10);
+  const stepJitter=Math.min(W*.010,H*.007)/W;
+  const points=[[x,top]];let currentX=x,bend=0;
   for(let i=1;i<=steps;i++){
     const progress=i/steps;
-    points.push([Math.max(.05,Math.min(.95,x+drift*progress+(Math.random()-.5)*jag)),top+(bottom-top)*progress]);
+    bend=bend*.55+(Math.random()-.5)*stepJitter;
+    currentX=Math.max(.05,Math.min(.95,currentX+drift/steps+bend));
+    points.push([currentX,top+(bottom-top)*progress]);
   }
   const branches=[],branchCount=type===0?1+Math.floor(Math.random()*2):3+Math.floor(Math.random()*4);
   for(let k=0;k<branchCount;k++){
     const point=points[2+Math.floor(Math.random()*(steps-3))],direction=Math.random()<.5?-1:1;
-    const path=[point],length=2+Math.floor(Math.random()*6),spread=.007+Math.random()*.018;
-    for(let j=1;j<=length;j++)path.push([Math.max(.02,Math.min(.98,point[0]+direction*j*spread+(Math.random()-.5)*.015)),Math.min(.43,point[1]+j*(.007+Math.random()*.014))]);
+    const path=[point],length=2+Math.floor(Math.random()*6),spread=Math.min(.006+Math.random()*.009,H/W*.012);
+    for(let j=1;j<=length;j++)path.push([Math.max(.02,Math.min(.98,point[0]+direction*j*spread+(Math.random()-.5)*.004)),Math.min(.43,point[1]+j*(.007+Math.random()*.014))]);
     branches.push(path);
   }
   return {points,branches,width:1.2+Math.random()*2.2,glow:12+Math.random()*24};
