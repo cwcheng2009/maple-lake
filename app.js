@@ -614,6 +614,7 @@ async function startAudio(enable=true){
   if(enable&&!sleepDeadline)sleepFactor=1;
   if(!ctx){ctx=new AudioContext();soundscape=new LakeSoundscape(ctx);soundscape.onDrop=(x,depth)=>{if(!paused&&rain>.001)ripples.push({x:x*W,y:H*(.46+depth*.45),age:0})}}
   await ctx.resume();
+  void soundscape.loadWildlifeRecordings().catch(()=>{});
   if(!soundscape.crowRecording)void soundscape.loadCrowRecording().catch(()=>{$('status').textContent='灰背鴉錄音載入失敗，暫用合成聲。'});
   if(!soundscape.doveRecording)void soundscape.loadDoveRecording().catch(()=>{$('status').textContent='斑鳩錄音載入失敗，暫用合成聲。'});
   if(!soundscape.insectRecording)void soundscape.loadInsectRecording().then(()=>{$('status').textContent='蟋蟀實錄已就緒 · syncopika / CC0'}).catch(()=>{$('status').textContent='蟋蟀錄音載入失敗，暫用合成蟋蟀聲。'});
@@ -772,3 +773,15 @@ try{
 }catch{}
 $('parameterPanel').addEventListener('input',savePreferences);$('parameterPanel').addEventListener('change',savePreferences);
 document.addEventListener('visibilitychange',()=>{last=performance.now();});
+
+setInterval(()=>{
+ if(!audioEnabled||paused||document.hidden||!soundscape?.active)return;
+ const frequency=Number($('duckFrequency').value),volume=Number($('duckVolume').value);
+ if(!frequency||!volume)return;
+ for(const bird of lakeDucks){
+  if(bird.nextCall===undefined){bird.nextCall=time+3+Math.random()*25;continue;}
+  if(bird.state!=='swim'||time<bird.nextCall)continue;
+  bird.nextCall=time+(10+Math.random()*35)/Math.max(.1,frequency);
+  soundscape.duckCall({pan:Math.max(-1,Math.min(1,bird.x*2-1))},volume);
+ }
+},500);

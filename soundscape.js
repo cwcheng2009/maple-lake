@@ -65,6 +65,23 @@ class LakeSoundscape {
     this.lastUpdate = -1;
     this.active = false;
   }
+  async loadWildlifeRecordings(){
+    await Promise.all(['duck','thunder'].map(async name=>{
+      if(this[name+'Recording'])return;
+      const response=await fetch('assets/'+name+'.mp3');if(!response.ok)throw Error(name+' recording unavailable');
+      this[name+'Recording']=await this.ctx.decodeAudioData(await response.arrayBuffer());
+    }));
+  }
+  duckCall(bird,volume){
+    if(!this.active||!this.duckRecording||volume<=0)return;
+    const source=this.ctx.createBufferSource(),gain=this.ctx.createGain(),pan=this.ctx.createStereoPanner(),filter=this.ctx.createBiquadFilter();
+    source.buffer=this.duckRecording;source.playbackRate.value=this.random(.94,1.06);
+    filter.type='highpass';filter.frequency.value=250;pan.pan.value=bird.pan;
+    const now=this.ctx.currentTime,duration=this.random(1.3,2.6),offset=this.random(2,Math.max(3,source.buffer.duration-12));
+    gain.gain.setValueAtTime(0,now);gain.gain.linearRampToValueAtTime(volume*.7,now+.08);gain.gain.setValueAtTime(volume*.7,now+duration-.25);gain.gain.linearRampToValueAtTime(0,now+duration);
+    source.connect(filter).connect(gain).connect(pan).connect(this.output);source.start(now,offset,duration);
+    source.onended=()=>{source.disconnect();filter.disconnect();gain.disconnect();pan.disconnect();};
+  }
   async loadDoveRecording(){
     if(this.doveRecording)return;if(this.doveLoading)return this.doveLoading;
     this.doveLoading=(async()=>{const response=await fetch('assets/dove.mp3');if(!response.ok)throw new Error('Dove recording could not be loaded');
@@ -312,6 +329,14 @@ class LakeSoundscape {
   }
   thunder(now=this.ctx.currentTime+.1, pan=this.random(-.35,.35), strength=1, character='near') {
     if (!this.active) return;
+    if(this.thunderRecording){
+      const source=this.ctx.createBufferSource(),gain=this.ctx.createGain(),panner=this.ctx.createStereoPanner();source.buffer=this.thunderRecording;
+      source.playbackRate.value=character==='near'?this.random(.92,1.08):this.random(.78,.92);panner.pan.value=pan;
+      const duration=source.buffer.duration/source.playbackRate.value,level=strength*(character==='near'?.95:.6);
+      gain.gain.setValueAtTime(0,now);gain.gain.linearRampToValueAtTime(level,now+.035);gain.gain.setValueAtTime(level,now+Math.max(.1,duration-1.5));gain.gain.linearRampToValueAtTime(0,now+duration);
+      source.connect(gain).connect(panner).connect(this.output);gain.connect(this.thunderRoom);source.start(now);
+      source.onended=()=>{source.disconnect();gain.disconnect();panner.disconnect();};return;
+    }
     const near=character==='near';
     const profiles=near?[
       {tone:1.3,edge:1.2,bass:.75,pace:.75},

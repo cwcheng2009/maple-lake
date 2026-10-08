@@ -33,3 +33,6 @@ Source: https://freesound.org/people/Mish7913/sounds/741366/
 Audio: https://cdn.freesound.org/previews/741/741366_16104671-hq.mp3
 License: CC0 1.0 Universal (https://creativecommons.org/publicdomain/zero/1.0/)
 Original file unmodified; runtime volume normalization, spatial panning and short edge fades only.
+
+Duck: pillonoise, mallard and mandarin ducks (with take off), CC0. https://freesound.org/people/pillonoise/sounds/263104/
+Thunder: Dave_Girtsman, Thunder, CC0. https://freesound.org/people/Dave_Girtsman/sounds/332543/
