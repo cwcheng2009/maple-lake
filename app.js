@@ -224,6 +224,12 @@ function skyTone(overcast,sunny){
 }
 const duckShelterLayout={left:[{x:.27,y:.60},{x:.35,y:.70},{x:.27,y:.60}],right:[{x:.645,y:.565},{x:.69,y:.59},{x:.645,y:.565}]};
 const lakeDucks=Array.from({length:3},(_,i)=>({state:'swim',age:0,x:.42+i*.06,y:.62+i*.025,phase:Math.random()*6.28,direction:i%2?-1:1,speed:.016+Math.random()*.010,tempo:.12+Math.random()*.18,wingTempo:8+Math.random()*5,flightDuration:3+Math.random()*2,lane:.60+i*.033,behavior:'swim',nextBehavior:2+Math.random()*7,headTilt:0}));
+const duckHideouts=[{x:.27,y:.60},{x:.35,y:.70},{x:.645,y:.565},{x:.91,y:.67}];
+function chooseDuckRoute(bird){
+ const available=duckHideouts.filter(n=>Math.abs(n.x-bird.x)>.07);
+ const target=available[Math.floor(Math.random()*available.length)];
+ bird.routeFrom={x:bird.x,y:bird.y};bird.routeTo=target;bird.routeProgress=0;bird.direction=target.x>bird.x?1:-1;
+}
 const duckWakes=[];
 function advanceDucks(dt){
   for(let i=duckWakes.length-1;i>=0;i--){duckWakes[i].age+=dt;if(duckWakes[i].age>2.8)duckWakes.splice(i,1);}
@@ -232,7 +238,7 @@ function advanceDucks(dt){
     if((bird.state==='swim'||bird.state==='return')&&rain>.1){const wasFlying=bird.state==='return';bird.state='leave';bird.age=wasFlying?0:-(i*.3+Math.random()*1.1);bird.fromX=bird.x;bird.fromY=bird.y;}
     if(bird.state==='away'&&rain<.025){bird.state='return';bird.age=-(i*.4+Math.random()*1.4);bird.targetX=.4+Math.random()*.2;bird.targetY=bird.lane;}
     if(bird.state==='leave'){const f=Math.max(0,Math.min(1,bird.age/bird.flightDuration));bird.x=bird.fromX+(1.15-bird.fromX)*f;bird.y=bird.fromY+(-.1-bird.fromY)*f;if(f===1)bird.state='away';}
-    else if(bird.state==='return'){const f=Math.max(0,Math.min(1,bird.age/(bird.flightDuration+.5)));bird.x=-.1+(bird.targetX+.1)*f;bird.y=.08+(bird.targetY-.08)*f;if(f===1){bird.state='swim';bird.age=0;bird.direction=i===1?-1:1;bird.edgeRest=false;}}
+    else if(bird.state==='return'){const f=Math.max(0,Math.min(1,bird.age/(bird.flightDuration+.5)));bird.x=-.1+(bird.targetX+.1)*f;bird.y=.08+(bird.targetY-.08)*f;if(f===1){bird.state='swim';bird.age=0;bird.direction=i===1?-1:1;bird.routeTo=null;}}
     else if(bird.state==='swim'){
       if(time>=bird.nextBehavior){
         bird.behavior=['swim','swim','rest','forage','preen'][Math.floor(Math.random()*5)];
@@ -247,24 +253,26 @@ function advanceDucks(dt){
       bird.headTilt+=(headTarget-bird.headTilt)*(1-Math.exp(-dt*9));
       bird.pace=(bird.pace??.8)+((bird.paceTarget??.8)-(bird.pace??.8))*(1-Math.exp(-dt/1.8));
       const paddle=bird.pace*(.85+.15*Math.sin(time*(.8+bird.tempo)+bird.phase));
-      // Decelerate at the bank, then paddle back without stopping indefinitely.
-      if(bird.turnTime>0){bird.turnTime=Math.max(0,bird.turnTime-dt);}
+      if(!bird.routeTo)chooseDuckRoute(bird);
+      if(bird.turnTime>0)bird.turnTime=Math.max(0,bird.turnTime-dt);
       else {
-        const speed=Math.max(bird.speed,4/W);
-        bird.x+=dt*bird.direction*speed*paddle;
-        if(bird.x>=rightShelter.x||bird.x<=leftShelter.x){bird.x=Math.max(leftShelter.x,Math.min(rightShelter.x,bird.x));bird.direction*=-1;bird.turnTime=.35+Math.random()*.35;bird.behavior='swim';}
+        const from=bird.routeFrom,to=bird.routeTo,span=Math.abs(to.x-from.x);
+        bird.routeProgress=Math.min(1,bird.routeProgress+dt*Math.max(bird.speed,4/W)*paddle/Math.max(.07,span));
+        const progress=bird.routeProgress;
+        bird.x=from.x+(to.x-from.x)*progress;
+        // Complete the vertical approach early, then enter cover horizontally from its side.
+        const middle=Math.max(0,Math.min(1,(progress-.18)/.52));
+        const ease=middle*middle*(3-2*middle);
+        const driftEnvelope=Math.sin(Math.PI*Math.max(0,Math.min(1,(progress-.15)/.55)));
+        bird.y=from.y+(to.y-from.y)*ease+(progress>.15&&progress<.70?driftEnvelope*(bird.driftTarget??0)*.35:0);
+        if(progress===1){bird.x=to.x;bird.y=to.y;chooseDuckRoute(bird);bird.turnTime=.6+Math.random()*1.6;bird.behavior='swim';}
       }
       bird.wakeClock=(bird.wakeClock??0)+dt;
       if(bird.wakeClock>.14+bird.tempo*.25){
         bird.wakeClock=0;duckWakes.push({x:bird.x,y:bird.y,age:0,direction:bird.direction,phase:bird.phase});
       }
 
-      const edgeDistance=Math.min(bird.x-leftShelter.x,rightShelter.x-bird.x);
-      const openWater=Math.max(0,Math.min(1,edgeDistance/.075));
-      const progress=Math.max(0,Math.min(1,(bird.x-leftShelter.x)/(rightShelter.x-leftShelter.x)));
-      const routeY=leftShelter.y+(rightShelter.y-leftShelter.y)*progress;
-      const targetY=routeY+openWater*((bird.driftTarget??0)+Math.sin(time*bird.tempo+bird.phase)*.008);
-      bird.y+=(targetY-bird.y)*(1-Math.exp(-dt/1.2));
+
     }
   }
 }
