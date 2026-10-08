@@ -304,16 +304,20 @@ const reedPatches=Array.from({length:6},(_,i)=>{
 function drawDuckShelters(){
  const scale=Math.max(.6,Math.min(1,W/950));
  for(const side of [.30,.72])for(let i=0;i<3;i++){
-  const index=(side===.30?0:3)+i,x=side*W,y=(.60+i*.033)*H,patch=reedPatches[index];
+  const left=side===.30,index=(left?0:3)+i,x=side*W,y=(.60+i*.033)*H,patch=reedPatches[index];
   c.save();c.translate(x,y);c.scale(scale,scale);
   c.fillStyle=nightColor([61,77,65],[18,31,33]);c.beginPath();c.ellipse(0,5,37,7,0,0,Math.PI*2);c.fill();
   c.fillStyle=nightColor([72,82,69],[23,35,36]);c.beginPath();c.moveTo(-32,5);c.bezierCurveTo(-35,-10,-22,-16,-10,-20);c.bezierCurveTo(5,-25,27,-18,32,-5);c.quadraticCurveTo(38,8,-32,5);c.fill();
   c.strokeStyle=nightColor([100,112,82],[36,49,42]);c.lineWidth=.8;c.beginPath();c.moveTo(-23,-8);c.quadraticCurveTo(-8,-19,8,-16);c.stroke();
   for(const reed of patch){
-   const force=windMotion(),bend=reed.lean+force*reed.flex*(11+Math.sin(time*(.9+reed.seed*.8)+reed.phase)*9+Math.sin(time*2.1+reed.phase)*3);
-   const stemX=t=>reed.x+bend*t*t,stemY=t=>4-reed.h*t;
+   const offset=left?[-17,9,-8][i]:[12,-16,20][i];
+   const spread=left?[1.25,.72,1.05][i]:[.7,1.3,.85][i];
+   const height=left?[.8,1.15,.7][i]:[1.25,.75,1.05][i];
+   const origin=reed.x*spread+offset,h=reed.h*height;
+   const force=windMotion(),bend=(left?10:-12)+reed.lean*(left?1:-1)+force*reed.flex*(11+Math.sin(time*(.9+reed.seed*.8)+reed.phase)*9+Math.sin(time*2.1+reed.phase)*3);
+   const stemX=t=>origin+bend*t*t,stemY=t=>4-h*t;
    c.strokeStyle=nightColor([91+reed.seed*30,103+reed.seed*20,57],[29,44,35]);c.lineWidth=.65+reed.seed*.45;
-   c.beginPath();c.moveTo(reed.x,4);c.bezierCurveTo(reed.x,4-reed.h*.34,reed.x+bend*.45,4-reed.h*.73,stemX(1),stemY(1));c.stroke();
+   c.beginPath();c.moveTo(origin,4);c.bezierCurveTo(origin,4-h*.34,origin+bend*.45,4-h*.73,stemX(1),stemY(1));c.stroke();
    // Narrow, tapered reed blades rise then arch downward, attached to the moving stem.
    for(let k=0;k<3;k++){
     const t=.3+k*.2,xx=stemX(t),yy=stemY(t),sign=(k+(reed.seed>.5?1:0))%2?1:-1;
