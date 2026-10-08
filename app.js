@@ -6,6 +6,7 @@ const $=id=>document.getElementById(id), canvas=$('scene'),c=canvas.getContext('
 let W,H,dpr,time=0,last=0,paused=matchMedia('(prefers-reduced-motion: reduce)').matches,mode='auto',rain=.25,wind=.2,flash=0,gust=0,birdUntil=0,insectUntil=0,nextEvent=8,micStream,micAnalyser,micData,lastTrigger=0,lastThunderTrigger=0;
 let manualThunderHistory=[],manualRainTarget=null;
 let ctx,soundscape,audioEnabled=false;
+let ecoMode=false,sleepDeadline=0,sleepFactor=1;
 let windFlow=.2;
 // One smoothed wind field drives both the sound level and the tree deformation.
 function windMotion(){return windFlow}
@@ -232,14 +233,14 @@ function advanceDucks(dt){
     if(bird.state==='leave'){const f=Math.max(0,Math.min(1,bird.age/bird.flightDuration));bird.x=bird.fromX+(1.15-bird.fromX)*f;bird.y=bird.fromY+(-.1-bird.fromY)*f;if(f===1)bird.state='away';}
     else if(bird.state==='return'){const f=Math.max(0,Math.min(1,bird.age/(bird.flightDuration+.5)));bird.x=-.1+(bird.targetX+.1)*f;bird.y=.08+(bird.targetY-.08)*f;if(f===1){bird.state='swim';bird.age=0;bird.direction=i===1?-1:1;bird.edgeRest=false;}}
     else if(bird.state==='swim'){
-      if(time>=bird.nextBehavior){bird.behavior=Math.random()<.35?'rest':'swim';bird.nextBehavior=time+(bird.behavior==='rest'?2+Math.random()*4:4+Math.random()*9);bird.headTarget=(Math.random()-.5)*.6;}
+      if(time>=bird.nextBehavior){bird.behavior=['swim','swim','rest','forage','preen'][Math.floor(Math.random()*5)];bird.nextBehavior=time+(bird.behavior==='rest'?2+Math.random()*4:4+Math.random()*9);bird.headTarget=bird.behavior==='forage'?1.1:bird.behavior==='preen'?-.9:(Math.random()-.5)*.6;}
       bird.headTilt+=((bird.headTarget??0)-bird.headTilt)*(1-Math.exp(-dt*2));
       const paddle=.8+.2*Math.sin(time*(.8+bird.tempo)+bird.phase);
       // Decelerate at the bank, then paddle back without stopping indefinitely.
       if(bird.turnTime>0){bird.turnTime=Math.max(0,bird.turnTime-dt);}
       else {
         const speed=Math.max(bird.speed,18/W);
-        bird.x+=dt*bird.direction*speed*paddle*(bird.behavior==='rest'?.45:1);
+        bird.x+=dt*bird.direction*speed*paddle*(bird.behavior==='rest'?.45:bird.behavior==='swim'?1:.55);
         if(bird.x>=.72||bird.x<=.30){bird.x=Math.max(.30,Math.min(.72,bird.x));bird.direction*=-1;bird.turnTime=.35+Math.random()*.35;bird.behavior='swim';}
       }
       bird.wakeClock=(bird.wakeClock??0)+dt;
@@ -402,7 +403,7 @@ function resetRainStreak(drop,initial=false){
   drop.width=.65+drop.depth*.85;drop.drift=(Math.random()-.5)*30;
 }
 function drawRainStreaks(dt){
-  const count=Math.round(rain*550*Math.max(.7,Math.min(1.8,W*H/(900*650))));
+  const count=Math.round((ecoMode?.55:1)*rain*550*Math.max(.7,Math.min(1.8,W*H/(900*650))));
   while(rainStreaks.length<count){const drop={};resetRainStreak(drop,true);rainStreaks.push(drop)}
   rainStreaks.length=count;const slant=.06+windMotion()*.25;
   c.save();c.lineCap='round';
@@ -425,7 +426,7 @@ function drawClouds(dt){
   const flow=Math.min(1.6,Math.max(0,windMotion()));
   // Even still weather advects clouds; stronger wind accelerates the same continuous field.
   cloudTravel+=dt*(.018+flow*.17);cloudFlowTime+=dt*(.45+flow*.65);cloudFrameAge+=dt;
-  if(cloudFrameAge>=.05){
+  if(cloudFrameAge>=(ecoMode?.12:.05)){
     cloudFrameAge=0;const storm=Math.min(1,rain*2),pixels=cloudPixels.data;
     for(let py=0;py<96;py++)for(let px=0;px<240;px++){
       const u=px/240*7.5-cloudTravel*7.5,v=py/96*3.4,t=cloudFlowTime;
@@ -559,6 +560,7 @@ drawNight();
 drawDucks(true);drawCrows();if(time<birdUntil||rainWildlife()>.08&&nightBlend<.8){for(let i=0;i<Number($('birdCount').value);i++){let x=((time*48+i*49)% (W+200))-100;const y=H*.17+Math.sin(time+i)*20;const audible=Object.keys(birdVolumes).filter(t=>birdVolumes[t]>0);if(!audible.length)continue;const type=audible[i%audible.length];if(type==='crow'||birdFrequencies[type]===0)continue;x=((time*48+i*49)%(W+200+240*(1/birdFrequencies[type]-1)))-100;if(x>W+50)continue;const span=type==='crow'?13:type==='dove'?10:7;c.strokeStyle=type==='crow'?'#151c20':'#293e38';c.lineWidth=type==='crow'?3:2;c.beginPath();c.moveTo(x-span,y+Math.sin(time*(type==='crow'?5:9))*4);c.lineTo(x,y);c.lineTo(x+span,y+Math.sin(time*(type==='crow'?5:9))*4);c.stroke()}}
 if(time<insectUntil||rainWildlife()>.08){for(let i=0;i<Math.round(Number($('insectDensity').value)*36);i++)ellipse((i%2?W*.91:W*.09)+Math.sin(i*14)*W*.025+Math.sin(time+i)*5,H*.72+Math.sin(i*14)*H*.09+Math.cos(time+i)*5,2,2,`rgba(232,220,128,${.4+.4*Math.sin(time*3+i)})`)}drawLightning();}
 async function startAudio(enable=true){
+  if(enable&&!sleepDeadline)sleepFactor=1;
   if(!ctx){ctx=new AudioContext();soundscape=new LakeSoundscape(ctx);soundscape.onDrop=(x,depth)=>{if(!paused&&rain>.001)ripples.push({x:x*W,y:H*(.46+depth*.45),age:0})}}
   await ctx.resume();
   if(!soundscape.crowRecording)void soundscape.loadCrowRecording().catch(()=>{$('status').textContent='灰背鴉錄音載入失敗，暫用合成聲。'});
@@ -574,7 +576,7 @@ async function startAudio(enable=true){
 }
 function updateAudio(){
   if(!soundscape)return;
-  soundscape.update({enabled:audioEnabled&&!paused,volume:Number($('volume').value),rain,wind:wind+gust,motion:windMotion(),motionTime:time,birds:time<birdUntil||rainWildlife()>.02,insects:time<insectUntil||rainWildlife()>.02,crowSources:crows.map(b=>({id:b.id,onScreen:b.x>=-35&&b.x<=W+35,pan:Math.max(-1,Math.min(1,b.x/W*2-1))})),birdPan:birdCenter()*2-1,insectPan:insectCenter*2-1,windPan:windPan(),birdNight:nightBlend,naturalBirds:mode==='auto',birdFrequencies:{...birdFrequencies},birdVolumes:{...birdVolumes},birdCount:Number($('birdCount').value),birdVolume:(1-nightBlend*.85)*(time<birdUntil?1:Math.sqrt(rainWildlife())),insectDensity:Number($('insectDensity').value),insectVolumes:{...insectVolumes},insectVolume:1*(.35+.65*nightBlend)*(time<insectUntil?1:Math.sqrt(rainWildlife()))});
+  soundscape.update({enabled:audioEnabled&&!paused,volume:Number($('volume').value)*sleepFactor,rain,wind:wind+gust,motion:windMotion(),motionTime:time,birds:time<birdUntil||rainWildlife()>.02,insects:time<insectUntil||rainWildlife()>.02,crowSources:crows.map(b=>({id:b.id,onScreen:b.x>=-35&&b.x<=W+35,pan:Math.max(-1,Math.min(1,b.x/W*2-1)),distance:Math.max(0,Math.min(1,(.38-b.y/H)/.30))})),birdPan:birdCenter()*2-1,insectPan:insectCenter*2-1,windPan:windPan(),birdNight:nightBlend,naturalBirds:mode==='auto',birdFrequencies:{...birdFrequencies},birdVolumes:{...birdVolumes},birdCount:Number($('birdCount').value),birdVolume:(1-nightBlend*.85)*(time<birdUntil?1:Math.sqrt(rainWildlife())),insectDensity:Number($('insectDensity').value),insectVolumes:{...insectVolumes},insectVolume:1*(.35+.65*nightBlend)*(time<insectUntil?1:Math.sqrt(rainWildlife()))});
 }
 function chirp(){if(soundscape&&audioEnabled)soundscape.birds()}
 function thunder(){
@@ -655,7 +657,7 @@ async function startMic(){
   }finally{micStarting=false;$('mic').disabled=false}
 }
 $('mic').onclick=()=>micStream?stopMic():startMic();
-let previousLevel=0;function frame(stamp){const dt=Math.min((stamp-last)/1000||.016,.05);last=stamp;if(!paused)draw(dt);if(micAnalyser){micAnalyser.getFloatTimeDomainData(micData);const rms=Math.min(.5,Math.sqrt(micData.reduce((a,v)=>a+v*v,0)/micData.length)*Number($('inputGain').value));currentInputRms=rms;showInputLevel(rms);$('meter').style.color=rms>Number($('threshold').value)?'#edc989':'#627c6b';const windThreshold=Number($('threshold').value),thunderThreshold=Number($('thunderThreshold').value);
+let previousLevel=0;function frame(stamp){const dt=Math.min((stamp-last)/1000||.016,.12);if(document.hidden){last=stamp;requestAnimationFrame(frame);return;}if(!ecoMode||dt>=1/30){last=stamp;if(!paused)draw(dt);}if(micAnalyser){micAnalyser.getFloatTimeDomainData(micData);const rms=Math.min(.5,Math.sqrt(micData.reduce((a,v)=>a+v*v,0)/micData.length)*Number($('inputGain').value));currentInputRms=rms;showInputLevel(rms);$('meter').style.color=rms>Number($('threshold').value)?'#edc989':'#627c6b';const windThreshold=Number($('threshold').value),thunderThreshold=Number($('thunderThreshold').value);
 if(rms<windThreshold*.75)micArmed=true;if(rms<thunderThreshold*.75)thunderArmed=true;
 if(mode==='manual'){
   if(thunderArmed&&rms>=thunderThreshold&&stamp-lastThunderTrigger>=1800){lastThunderTrigger=lastTrigger=stamp;thunderArmed=false;micArmed=false;trigger('thunder')}
@@ -698,3 +700,24 @@ setInterval(()=>{
  $('audio').textContent=audioEnabled?'靜音音景':'開啟聲音';
  $('pause').textContent=paused?'繼續播放':'暫停播放';
 },200);
+
+// Long-session controls use wall-clock time, so sleep also works in background tabs.
+$('ecoMode').onchange=()=>{ecoMode=$('ecoMode').checked;savePreferences();};
+$('sleepTimer').onchange=()=>{sleepDeadline=Number($('sleepTimer').value)>0?Date.now()+Number($('sleepTimer').value)*60000:0;sleepFactor=1;updateAudio();};
+setInterval(()=>{
+ if(!sleepDeadline){$('sleepStatus').textContent='未設定定時';return;}
+ const remaining=sleepDeadline-Date.now();sleepFactor=Math.max(0,Math.min(1,remaining/30000));
+ $('sleepStatus').textContent=remaining>30000?'剩餘 '+Math.ceil(remaining/60000)+' 分鐘':remaining>0?'音量逐漸淡出…':'已定時停止';
+ if(remaining<=0){sleepDeadline=0;audioEnabled=false;paused=true;$('sleepTimer').value='0';}
+ updateAudio();
+},250);
+const preferenceIds=['dayMode','rain','wind','volume','birdCount','insectDensity','inputGain','threshold','thunderThreshold'];
+function savePreferences(){try{localStorage.setItem('mapleLake.preferences.v1',JSON.stringify({values:Object.fromEntries(preferenceIds.map(id=>[id,$(id).value])),birdVolumes,insectVolumes,birdFrequencies,ecoMode}));}catch{}}
+try{
+ const saved=JSON.parse(localStorage.getItem('mapleLake.preferences.v1')||'null');
+ if(saved){for(const id of preferenceIds){const v=saved.values?.[id];if(v!==undefined&&Number.isFinite(Number(v))||id==='dayMode'&&['cycle','day','night'].includes(v))$(id).value=v;}
+ for(const [target,source] of [[birdVolumes,saved.birdVolumes],[insectVolumes,saved.insectVolumes],[birdFrequencies,saved.birdFrequencies]])for(const key of Object.keys(target))if(Number.isFinite(source?.[key]))target[key]=Math.max(0,Math.min(1,source[key]));
+ ecoMode=!!saved.ecoMode;$('ecoMode').checked=ecoMode;wind=Number($('wind').value);rain=Number($('rain').value);showBirdControls();showInsectControls();resetAuto();}
+}catch{}
+$('parameterPanel').addEventListener('input',savePreferences);$('parameterPanel').addEventListener('change',savePreferences);
+document.addEventListener('visibilitychange',()=>{last=performance.now();});
