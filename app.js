@@ -221,8 +221,10 @@ function skyTone(overcast,sunny){
   const tone=day.map((v,i)=>v+(dusk[i]-v)*twilight);
   return nightColor(tone,overcast[0]<150?[12,24,47]:[43,57,76]);
 }
-const lakeDucks=Array.from({length:3},(_,i)=>({state:'swim',age:0,x:.42+i*.06,y:.62+i*.025,phase:Math.random()*6.28,direction:i%2?-1:1,speed:.022+Math.random()*.018,tempo:.12+Math.random()*.18,wingTempo:8+Math.random()*5,flightDuration:3+Math.random()*2,lane:.60+i*.033,behavior:'swim',nextBehavior:2+Math.random()*7,headTilt:0}));
+const lakeDucks=Array.from({length:3},(_,i)=>({state:'swim',age:0,x:.42+i*.06,y:.62+i*.025,phase:Math.random()*6.28,direction:i%2?-1:1,speed:.045+Math.random()*.025,tempo:.12+Math.random()*.18,wingTempo:8+Math.random()*5,flightDuration:3+Math.random()*2,lane:.60+i*.033,behavior:'swim',nextBehavior:2+Math.random()*7,headTilt:0}));
+const duckWakes=[];
 function advanceDucks(dt){
+  for(let i=duckWakes.length-1;i>=0;i--){duckWakes[i].age+=dt;if(duckWakes[i].age>2.8)duckWakes.splice(i,1);}
   for(let i=0;i<lakeDucks.length;i++){
     const bird=lakeDucks[i];bird.age+=dt;
     if((bird.state==='swim'||bird.state==='return')&&rain>.1){const wasFlying=bird.state==='return';bird.state='leave';bird.age=wasFlying?0:-(i*.3+Math.random()*1.1);bird.fromX=bird.x;bird.fromY=bird.y;}
@@ -233,19 +235,38 @@ function advanceDucks(dt){
       if(time>=bird.nextBehavior){bird.behavior=Math.random()<.35?'rest':'swim';bird.nextBehavior=time+(bird.behavior==='rest'?2+Math.random()*4:4+Math.random()*9);bird.headTarget=(Math.random()-.5)*.6;}
       bird.headTilt+=((bird.headTarget??0)-bird.headTilt)*(1-Math.exp(-dt*2));
       const paddle=.8+.2*Math.sin(time*(.8+bird.tempo)+bird.phase);
-      if(!bird.edgeRest){
-        bird.x+=dt*bird.direction*bird.speed*paddle*(bird.behavior==='rest'?.08:1);
-        if(bird.x>=.69||bird.x<=.37){bird.x=Math.max(.37,Math.min(.69,bird.x));bird.edgeRest=true;bird.restX=bird.x;}
-      }else bird.x=bird.restX+Math.sin(time*bird.tempo+bird.phase)*.002;
+      // Decelerate at the bank, then paddle back without stopping indefinitely.
+      if(bird.turnTime>0){bird.turnTime=Math.max(0,bird.turnTime-dt);}
+      else {
+        const speed=Math.max(bird.speed,18/W);
+        bird.x+=dt*bird.direction*speed*paddle*(bird.behavior==='rest'?.45:1);
+        if(bird.x>=.72||bird.x<=.30){bird.x=Math.max(.30,Math.min(.72,bird.x));bird.direction*=-1;bird.turnTime=.35+Math.random()*.35;bird.behavior='swim';}
+      }
+      bird.wakeClock=(bird.wakeClock??0)+dt;
+      if(bird.wakeClock>.14+bird.tempo*.25){
+        bird.wakeClock=0;duckWakes.push({x:bird.x,y:bird.y,age:0,direction:bird.direction,phase:bird.phase});
+      }
 
       bird.y=bird.lane+Math.sin(time*bird.tempo+bird.phase)*.005;
     }
   }
 }
 function drawDucks(flying){
+  if(!flying){
+    const scale=Math.max(.6,Math.min(1,W/950));
+    c.save();c.lineWidth=1;
+    for(const wake of duckWakes){
+      const age=wake.age,fade=Math.pow(Math.max(0,1-age/2.8),1.5);
+      const x=wake.x*W-wake.direction*(10+age*6)*scale;
+      const y=wake.y*H+4*scale+Math.sin(time*1.4+wake.phase+age)*.7;
+      c.strokeStyle=`rgba(190,222,213,${fade*.27})`;
+      c.beginPath();c.ellipse(x,y,(7+age*19)*scale,(2+age*5)*scale,0,.15,Math.PI*1.85);c.stroke();
+    }
+    c.restore();
+  }
   for(const bird of lakeDucks){if(bird.state==='away')continue;const flight=(bird.state==='leave'&&bird.age>=0)||bird.state==='return';if(flight!==flying||(bird.state==='return'&&bird.age<0))continue;
     const x=bird.x*W,y=bird.y*H+Math.sin(time*(1.1+bird.tempo)+bird.phase)*.8,scale=Math.max(.6,Math.min(1,W/950));
-    if(!flight){c.save();c.strokeStyle='rgba(187,218,210,.3)';c.lineWidth=1;for(let k=0;k<3;k++){c.beginPath();c.ellipse(x-bird.direction*(9+k*7)*scale,y+4*scale,13*scale+k*4,3*scale+k,0,.3,Math.PI*1.75);c.stroke()}c.globalAlpha=.16;c.fillStyle='#73806d';c.beginPath();c.ellipse(x,y+8*scale,12*scale,4*scale,0,0,Math.PI*2);c.fill();c.restore();}
+    if(!flight){c.save();c.globalAlpha=.16;c.fillStyle='#73806d';c.beginPath();c.ellipse(x,y+8*scale,12*scale,4*scale,0,0,Math.PI*2);c.fill();c.restore();}
     c.save();c.translate(x,y);c.scale((flight?1:bird.direction)*scale,scale);if(!flight)c.rotate(Math.sin(time*(.7+bird.tempo)+bird.phase)*.025);
     // A rounded floating body, tapered tail and a gently curved neck.
     c.fillStyle='#847969';c.beginPath();c.moveTo(-14,-2);c.quadraticCurveTo(-6,-11,6,-7);c.quadraticCurveTo(14,-5,13,0);c.quadraticCurveTo(6,8,-7,5);c.quadraticCurveTo(-12,4,-14,-2);c.fill();
