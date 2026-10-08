@@ -310,8 +310,16 @@ function drawDucks(flying){
 // Each bank has a distinct, stable arrangement; wind deforms whole stems and leaves.
 const reedPatches=Array.from({length:6},(_,i)=>{
  const count=[20,9,0,27,18,5][i],spread=[72,39,0,87,58,43][i];
- return Array.from({length:count},()=>({x:(Math.random()-.5)*spread,h:20+Math.random()*(i<3?40:29),lean:(Math.random()-.5)*14,phase:Math.random()*6.28,flex:.7+Math.random()*.8,seed:Math.random()})).sort((a,b)=>b.h-a.h);
+ return Array.from({length:count},()=>{const u=Math.random(),position=i===0?Math.pow(u,.7):i===3?(u<.55?u*.65:u*.7+.3):u;const crown=i===0?.65+.6*position:i===1?1.2-.6*position:i===3?.55+.65*Math.sin(position*Math.PI):i===4?.8+.3*Math.cos(position*Math.PI*3):.7;return {x:(position-.5)*spread,h:(20+Math.random()*(i<3?40:29))*crown,lean:(Math.random()-.5)*14+[5,-7,0,-4,8,-9][i],phase:Math.random()*6.28,flex:.7+Math.random()*.8,seed:Math.random()};}).sort((a,b)=>b.h-a.h);
 });
+const reedBaseShapes=[
+ [[-40,5],[-43,-3],[-32,-10],[-19,-21],[-2,-24],[13,-19],[28,-10],[35,3],[18,9],[-18,10]],
+ [[-28,4],[-32,-7],[-21,-20],[-7,-25],[9,-22],[23,-13],[30,4],[10,8],[-14,7]],
+ [],
+ [[-43,4],[-39,-9],[-26,-20],[-9,-25],[5,-21],[18,-26],[35,-15],[45,2],[29,9],[-12,8]],
+ [[-34,4],[-37,-7],[-27,-19],[-15,-25],[0,-21],[12,-23],[31,-11],[38,3],[17,10],[-16,8]],
+ []
+];
 function drawDuckShelters(){
  const scale=Math.max(.6,Math.min(1,W/950));
  for(const side of [.30,.72])for(let i=0;i<3;i++){
@@ -319,8 +327,8 @@ function drawDuckShelters(){
   const left=side===.30,index=(left?0:3)+i,position=!left&&i===2?{x:.87,y:.73}:duckShelterLayout[left?'left':'right'][i],x=position.x*W,y=position.y*H,patch=reedPatches[index];
   c.save();c.translate(x,y);c.scale(scale,scale);
   if(left||i!==2){
-  c.fillStyle=nightColor([61,77,65],[18,31,33]);c.beginPath();c.ellipse(0,5,37,7,0,0,Math.PI*2);c.fill();
-  c.fillStyle=nightColor([72,82,69],[23,35,36]);c.beginPath();c.moveTo(-32,5);c.bezierCurveTo(-35,-10,-22,-16,-10,-20);c.bezierCurveTo(5,-25,27,-18,32,-5);c.quadraticCurveTo(38,8,-32,5);c.fill();
+  c.fillStyle=nightColor([61,77,65],[18,31,33]);c.beginPath();c.ellipse(index===3?5:-3,5,[43,31,0,47,39,0][index],index===1?5:8,index===0?-.07:.04,0,Math.PI*2);c.fill();
+  c.fillStyle=nightColor([72,82,69],[23,35,36]);c.beginPath();const outline=reedBaseShapes[index];c.moveTo(...outline[0]);for(let j=0;j<outline.length;j++){const a=outline[j],b=outline[(j+1)%outline.length];c.quadraticCurveTo(a[0],a[1],(a[0]+b[0])/2,(a[1]+b[1])/2);}c.closePath();c.fill();
   c.strokeStyle=nightColor([100,112,82],[36,49,42]);c.lineWidth=.8;c.beginPath();c.moveTo(-23,-8);c.quadraticCurveTo(-8,-19,8,-16);c.stroke();
   }
   for(const reed of patch){
