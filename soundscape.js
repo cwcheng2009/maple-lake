@@ -104,8 +104,8 @@ class LakeSoundscape {
     const duration=source.buffer.duration/source.playbackRate.value,level=this.crowNormalization*(voice?.level??1);
     gain.gain.setValueAtTime(.00001,at);gain.gain.linearRampToValueAtTime(level,at+.25);
     const distanceGain=this.ctx.createGain();distanceGain.gain.value=1;
-    source.connect(gain).connect(distanceGain);const panner=this.route(distanceGain,pan,'bird:crow');panner._distanceGain=distanceGain;panner._crowSource=source;source.start(at);
-    source.onended=()=>{source.disconnect();gain.disconnect();distanceGain.disconnect();this.crowPanners.delete(panner);panner.disconnect()};
+    const distanceFilter=this.ctx.createBiquadFilter();distanceFilter.type='lowpass';distanceFilter.frequency.value=8500;source.connect(gain).connect(distanceFilter).connect(distanceGain);const panner=this.route(distanceGain,pan,'bird:crow');panner._distanceFilter=distanceFilter;panner._distanceGain=distanceGain;panner._crowSource=source;source.start(at);
+    source.onended=()=>{source.disconnect();gain.disconnect();distanceFilter.disconnect();distanceGain.disconnect();this.crowPanners.delete(panner);panner.disconnect()};
   }
   async loadRainRecording() {
     if(this.rainRecording)return;
@@ -385,7 +385,7 @@ class LakeSoundscape {
     this.output.gain.cancelScheduledValues(now);
     if(!enabled)this.output.gain.setValueAtTime(0,now);
     else this.output.gain.setTargetAtTime(volume*.8,now,.08);
-    for(const panner of this.crowPanners){const bird=crowSources.find(b=>b.id===panner._crowId);if(bird)panner.pan.setTargetAtTime(bird.pan,now,.04);if(panner._distanceGain&&!panner._fading&&(!bird||!bird.onScreen)){panner._fading=true;const gain=panner._distanceGain.gain;gain.cancelScheduledValues(now);gain.setValueAtTime(Math.max(.0001,gain.value),now);gain.linearRampToValueAtTime(0,now+3.5);panner._crowSource.stop(now+3.55);}}
+    for(const panner of this.crowPanners){const bird=crowSources.find(b=>b.id===panner._crowId);if(bird){panner.pan.setTargetAtTime(bird.pan,now,.04);if(!panner._fading)panner._distanceGain.gain.setTargetAtTime(1-(bird.distance??0)*.65,now,.25);if(panner._distanceFilter)panner._distanceFilter.frequency.setTargetAtTime(8500-(bird.distance??0)*5500,now,.25);}if(panner._distanceGain&&!panner._fading&&(!bird||!bird.onScreen)){panner._fading=true;const gain=panner._distanceGain.gain;gain.cancelScheduledValues(now);gain.setValueAtTime(Math.max(.0001,gain.value),now);gain.linearRampToValueAtTime(0,now+3.5);panner._crowSource.stop(now+3.55);}}
     const realInsects=!!this.insectRecording;
     if(this.insectRecording){
       this.insectRecording.gain.gain.setTargetAtTime(realInsects&&insectDensity>0&&(insects||now<this.insectsEnd)?insectVolume*(insectVolumes.recorded??0)*.85*this.insectNormalization*(.5+insectDensity*.5):0,now,.35);
