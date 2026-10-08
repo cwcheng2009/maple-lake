@@ -281,6 +281,23 @@ function drawDucks(flying){
     c.restore();
   }
 }
+// Reed-covered rocks conceal the ducks while they change direction.
+function drawDuckShelters(){
+  const scale=Math.max(.6,Math.min(1,W/950));
+  for(const side of [.30,.72])for(let i=0;i<3;i++){
+    const x=side*W,y=(.60+i*.033)*H;
+    c.save();c.translate(x,y);c.scale(scale,scale);
+    c.fillStyle=nightColor([66,83,70],[19,33,36]);
+    c.beginPath();c.moveTo(-31,7);c.quadraticCurveTo(-36,-3,-22,-11);c.quadraticCurveTo(-9,-27,9,-23);c.quadraticCurveTo(28,-25,33,2);c.quadraticCurveTo(22,12,-31,7);c.fill();
+    c.fillStyle=nightColor([98,109,80],[30,43,40]);c.beginPath();c.ellipse(-4,-15,20,6,-.15,0,Math.PI*2);c.fill();
+    for(let j=0;j<7;j++){
+      const px=-26+j*8,h=25+(j*13%23),bend=Math.sin(time*(.8+j*.1)+i+j)*windMotion()*6;
+      c.strokeStyle=nightColor([106,112,65],[35,47,38]);c.lineWidth=1.4;c.beginPath();c.moveTo(px,5);c.quadraticCurveTo(px+bend*.4,-h*.5,px+bend,-h);c.stroke();
+      c.strokeStyle=nightColor([125,93,57],[46,40,31]);c.lineWidth=3;c.beginPath();c.moveTo(px+bend,-h);c.lineTo(px+bend,-h+8);c.stroke();
+    }
+    c.restore();
+  }
+}
 function drawCabin(c=canvas.getContext('2d')){
   const x=W*.73,y=H*.52,s=Math.max(.55,Math.min(1.2,W/1050)),lamp=Math.max(0,Math.min(1,(nightBlend-.35)/.45));
   c.save();c.translate(x,y);c.scale(s,s);
@@ -521,7 +538,7 @@ for(let i=ripples.length-1;i>=0;i--){
 c.restore();
 // All water reflections are behind the opaque cabin and foreground banks.
 drawCabinReflection();drawWaterReflections();
-drawCabin();drawDucks(false);
+drawCabin();drawDucks(false);drawDuckShelters();
 // Near banks frame the open water.
 for(const bank of leftBank)tree(bank.x*W,bank.y*H,bank.size*Math.max(.7,W/1400),trees[bank.tree]);
 for(let i=0;i<7;i++)tree(W-i*W*.028,H*.65+i*H*.055,(1.15+i*.13)*Math.max(.7,W/1400),trees[i+9]);
