@@ -222,7 +222,7 @@ function skyTone(overcast,sunny){
   const tone=day.map((v,i)=>v+(dusk[i]-v)*twilight);
   return nightColor(tone,overcast[0]<150?[12,24,47]:[43,57,76]);
 }
-const duckShelterLayout={left:[{x:.27,y:.60},{x:.35,y:.70},{x:.27,y:.60}],right:[{x:.84,y:.55},{x:.88,y:.565},{x:.84,y:.55}]};
+const duckShelterLayout={left:[{x:.27,y:.60},{x:.35,y:.70},{x:.27,y:.60}],right:[{x:.645,y:.565},{x:.69,y:.59},{x:.645,y:.565}]};
 const lakeDucks=Array.from({length:3},(_,i)=>({state:'swim',age:0,x:.42+i*.06,y:.62+i*.025,phase:Math.random()*6.28,direction:i%2?-1:1,speed:.016+Math.random()*.010,tempo:.12+Math.random()*.18,wingTempo:8+Math.random()*5,flightDuration:3+Math.random()*2,lane:.60+i*.033,behavior:'swim',nextBehavior:2+Math.random()*7,headTilt:0}));
 const duckWakes=[];
 function advanceDucks(dt){
