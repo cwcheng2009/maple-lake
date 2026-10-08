@@ -1,0 +1,43 @@
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600&family=Noto+Serif+TC:wght@400;500;600&display=swap');
+/* Shared Traditional Chinese typography for the lake and information pages. */
+:root {
+  --font-body: 'Noto Sans TC', 'PingFang TC', 'Microsoft JhengHei', sans-serif;
+  --font-title: 'Noto Serif TC', 'Songti TC', 'PMingLiU', serif;
+  font-family: var(--font-body);
+  font-synthesis: none;
+}
+body { font-family: var(--font-body); font-weight:400; }
+button, input, select, textarea { font-family:var(--font-body); }
+h1,h2,h3,.brand { font-family:var(--font-title); }
+h1 { font-weight:500; letter-spacing:.055em; line-height:1.5; text-wrap:balance; }
+h2 { font-weight:500; letter-spacing:.035em; }
+h3 { font-weight:600; letter-spacing:.025em; }
+.brand { font-weight:500; letter-spacing:.16em; }
+.brand span { font-family:var(--font-body); letter-spacing:.18em; }
+.intro { font-family:var(--font-body); font-size:15px; line-height:1.95; letter-spacing:.055em; }
+.panel { line-height:1.65; }
+.panel-top { font-weight:500; font-size:14px; letter-spacing:.04em; }
+.slider,.mic,.day-control { font-size:12px; letter-spacing:.015em; }
+#modeHelp,#status,.sound-note,#inputHelp { line-height:1.85; letter-spacing:.015em; }
+.control-group>summary,.nature-controls p { font-weight:500; letter-spacing:.04em; }
+.events span { font-size:11px; letter-spacing:.03em; }
+footer { letter-spacing:.055em; }
+footer button,.about-entry { font-weight:500; }
+output { font-variant-numeric:tabular-nums; }
+body:has(.outreach-background) { font-size:16px; line-height:1.9; letter-spacing:.018em; }
+.lead { line-height:1.95; letter-spacing:.025em; }
+.card h3 { line-height:1.65; }
+nav a,.button { font-weight:500; }
+@media(max-width:700px) {
+  h1 { font-size:clamp(27px,7vw,34px); letter-spacing:.04em; line-height:1.55; }
+  .brand { font-size:23px; letter-spacing:.12em; }
+  .intro { font-size:13px; line-height:1.9; letter-spacing:.035em; }
+  .panel-top { font-size:14px; }
+  .slider,.mic,.day-control { font-size:12px; }
+}
+@media(max-width:640px) {
+  body:has(.outreach-background) { font-size:15px; }
+  h2 { font-size:25px; line-height:1.6; }
+  h3 { font-size:20px; }
+  .lead { font-size:16px; }
+}
