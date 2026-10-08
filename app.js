@@ -222,7 +222,7 @@ function skyTone(overcast,sunny){
   const tone=day.map((v,i)=>v+(dusk[i]-v)*twilight);
   return nightColor(tone,overcast[0]<150?[12,24,47]:[43,57,76]);
 }
-const lakeDucks=Array.from({length:3},(_,i)=>({state:'swim',age:0,x:.42+i*.06,y:.62+i*.025,phase:Math.random()*6.28,direction:i%2?-1:1,speed:.045+Math.random()*.025,tempo:.12+Math.random()*.18,wingTempo:8+Math.random()*5,flightDuration:3+Math.random()*2,lane:.60+i*.033,behavior:'swim',nextBehavior:2+Math.random()*7,headTilt:0}));
+const lakeDucks=Array.from({length:3},(_,i)=>({state:'swim',age:0,x:.42+i*.06,y:.62+i*.025,phase:Math.random()*6.28,direction:i%2?-1:1,speed:.016+Math.random()*.010,tempo:.12+Math.random()*.18,wingTempo:8+Math.random()*5,flightDuration:3+Math.random()*2,lane:.60+i*.033,behavior:'swim',nextBehavior:2+Math.random()*7,headTilt:0}));
 const duckWakes=[];
 function advanceDucks(dt){
   for(let i=duckWakes.length-1;i>=0;i--){duckWakes[i].age+=dt;if(duckWakes[i].age>2.8)duckWakes.splice(i,1);}
@@ -233,14 +233,24 @@ function advanceDucks(dt){
     if(bird.state==='leave'){const f=Math.max(0,Math.min(1,bird.age/bird.flightDuration));bird.x=bird.fromX+(1.15-bird.fromX)*f;bird.y=bird.fromY+(-.1-bird.fromY)*f;if(f===1)bird.state='away';}
     else if(bird.state==='return'){const f=Math.max(0,Math.min(1,bird.age/(bird.flightDuration+.5)));bird.x=-.1+(bird.targetX+.1)*f;bird.y=.08+(bird.targetY-.08)*f;if(f===1){bird.state='swim';bird.age=0;bird.direction=i===1?-1:1;bird.edgeRest=false;}}
     else if(bird.state==='swim'){
-      if(time>=bird.nextBehavior){bird.behavior=['swim','swim','rest','forage','preen'][Math.floor(Math.random()*5)];bird.nextBehavior=time+(bird.behavior==='rest'?2+Math.random()*4:4+Math.random()*9);bird.headTarget=bird.behavior==='forage'?1.1:bird.behavior==='preen'?-.9:(Math.random()-.5)*.6;}
-      bird.headTilt+=((bird.headTarget??0)-bird.headTilt)*(1-Math.exp(-dt*2));
-      const paddle=.8+.2*Math.sin(time*(.8+bird.tempo)+bird.phase);
+      if(time>=bird.nextBehavior){
+        bird.behavior=['swim','swim','rest','forage','preen'][Math.floor(Math.random()*5)];
+        bird.behaviorStart=time;bird.actionDuration=.65+Math.random()*.65;
+        bird.nextBehavior=time+(bird.behavior==='swim'?4+Math.random()*8:2+Math.random()*3);
+        bird.paceTarget=bird.behavior==='rest'?.15+Math.random()*.15:.5+Math.random()*.9;
+        bird.driftTarget=(Math.random()-.5)*.028;
+      }
+      const actionAge=time-(bird.behaviorStart??time);
+      const actionEnvelope=actionAge<bird.actionDuration?Math.sin(Math.PI*actionAge/bird.actionDuration):0;
+      const headTarget=bird.behavior==='forage'?.85*actionEnvelope:bird.behavior==='preen'?-.65*actionEnvelope:Math.sin(time*1.3+bird.phase)*.07;
+      bird.headTilt+=(headTarget-bird.headTilt)*(1-Math.exp(-dt*9));
+      bird.pace=(bird.pace??.8)+((bird.paceTarget??.8)-(bird.pace??.8))*(1-Math.exp(-dt/1.8));
+      const paddle=bird.pace*(.85+.15*Math.sin(time*(.8+bird.tempo)+bird.phase));
       // Decelerate at the bank, then paddle back without stopping indefinitely.
       if(bird.turnTime>0){bird.turnTime=Math.max(0,bird.turnTime-dt);}
       else {
-        const speed=Math.max(bird.speed,18/W);
-        bird.x+=dt*bird.direction*speed*paddle*(bird.behavior==='rest'?.45:bird.behavior==='swim'?1:.55);
+        const speed=Math.max(bird.speed,4/W);
+        bird.x+=dt*bird.direction*speed*paddle;
         if(bird.x>=.72||bird.x<=.30){bird.x=Math.max(.30,Math.min(.72,bird.x));bird.direction*=-1;bird.turnTime=.35+Math.random()*.35;bird.behavior='swim';}
       }
       bird.wakeClock=(bird.wakeClock??0)+dt;
@@ -248,7 +258,10 @@ function advanceDucks(dt){
         bird.wakeClock=0;duckWakes.push({x:bird.x,y:bird.y,age:0,direction:bird.direction,phase:bird.phase});
       }
 
-      bird.y=bird.lane+Math.sin(time*bird.tempo+bird.phase)*.005;
+      const edgeDistance=Math.min(bird.x-.30,.72-bird.x);
+      const openWater=Math.max(0,Math.min(1,edgeDistance/.075));
+      const targetY=bird.lane+openWater*((bird.driftTarget??0)+Math.sin(time*bird.tempo+bird.phase)*.008);
+      bird.y+=(targetY-bird.y)*(1-Math.exp(-dt/1.2));
     }
   }
 }
@@ -283,21 +296,32 @@ function drawDucks(flying){
   }
 }
 // Reed-covered rocks conceal the ducks while they change direction.
+const reedPatches=Array.from({length:6},(_,i)=>Array.from({length:28},(_,j)=>{
+ const n=Math.abs(Math.sin(i*73.7+j*19.31)*43758.5453)%1;
+ const m=Math.abs(Math.sin(i*11.2+j*37.73)*15321.914)%1;
+ return {x:(n-.5)*68,h:22+m*44,lean:(n-.5)*19,phase:m*6.28,seed:n};
+}));
 function drawDuckShelters(){
-  const scale=Math.max(.6,Math.min(1,W/950));
-  for(const side of [.30,.72])for(let i=0;i<3;i++){
-    const x=side*W,y=(.60+i*.033)*H;
-    c.save();c.translate(x,y);c.scale(scale,scale);
-    c.fillStyle=nightColor([66,83,70],[19,33,36]);
-    c.beginPath();c.moveTo(-31,7);c.quadraticCurveTo(-36,-3,-22,-11);c.quadraticCurveTo(-9,-27,9,-23);c.quadraticCurveTo(28,-25,33,2);c.quadraticCurveTo(22,12,-31,7);c.fill();
-    c.fillStyle=nightColor([98,109,80],[30,43,40]);c.beginPath();c.ellipse(-4,-15,20,6,-.15,0,Math.PI*2);c.fill();
-    for(let j=0;j<7;j++){
-      const px=-26+j*8,h=25+(j*13%23),bend=Math.sin(time*(.8+j*.1)+i+j)*windMotion()*6;
-      c.strokeStyle=nightColor([106,112,65],[35,47,38]);c.lineWidth=1.4;c.beginPath();c.moveTo(px,5);c.quadraticCurveTo(px+bend*.4,-h*.5,px+bend,-h);c.stroke();
-      c.strokeStyle=nightColor([125,93,57],[46,40,31]);c.lineWidth=3;c.beginPath();c.moveTo(px+bend,-h);c.lineTo(px+bend,-h+8);c.stroke();
-    }
-    c.restore();
+ const scale=Math.max(.6,Math.min(1,W/950));
+ for(const side of [.30,.72])for(let i=0;i<3;i++){
+  const x=side*W,y=(.60+i*.033)*H,patch=reedPatches[(side===.30?0:3)+i];
+  c.save();c.translate(x,y);c.scale(scale,scale);
+  c.fillStyle=nightColor([61,77,65],[18,31,33]);c.beginPath();c.ellipse(0,5,37,9,0,0,Math.PI*2);c.fill();
+  // Irregular mossy stones provide solid occlusion beneath fine leaves.
+  c.fillStyle=nightColor([72,82,69],[23,35,36]);c.beginPath();c.moveTo(-32,5);c.bezierCurveTo(-35,-10,-22,-16,-10,-20);c.bezierCurveTo(5,-25,27,-18,32,-5);c.quadraticCurveTo(38,8,-32,5);c.fill();
+  c.strokeStyle=nightColor([100,112,82],[36,49,42]);c.lineWidth=.8;c.beginPath();c.moveTo(-23,-8);c.quadraticCurveTo(-8,-19,8,-16);c.stroke();
+  for(const reed of patch){
+   const bend=reed.lean+Math.sin(time*(.65+reed.seed*.5)+reed.phase)*windMotion()*7,tip=reed.x+bend;
+   c.strokeStyle=nightColor([82+reed.seed*35,96+reed.seed*26,54],[28,43,35]);c.lineWidth=.55+reed.seed*.4;
+   c.beginPath();c.moveTo(reed.x,4);c.bezierCurveTo(reed.x,-reed.h*.25,tip-bend*.3,-reed.h*.72,tip,-reed.h);c.stroke();
+   for(const sign of [-1,1]){const yy=-reed.h*(sign===1?.42:.65),xx=reed.x+bend*.4;
+    c.fillStyle=nightColor([106+reed.seed*24,111,61],[36,48,35]);c.beginPath();c.moveTo(xx,yy);c.quadraticCurveTo(xx+sign*14,yy-7,xx+sign*(18+reed.seed*10),yy-12);c.quadraticCurveTo(xx+sign*10,yy-3,xx,yy+1);c.fill();
+   }
+   if(reed.seed>.55){c.save();c.translate(tip,-reed.h);c.rotate(bend*.015);c.fillStyle=nightColor([166,140,96],[63,58,43]);
+    for(let k=0;k<9;k++){c.beginPath();c.ellipse((k%2?1:-1)*(1+k*.18),-k*1.4,2.5-k*.15,1.1,k%2?.6:-.6,0,Math.PI*2);c.fill();}c.restore();}
   }
+  c.restore();
+ }
 }
 function drawCabin(c=canvas.getContext('2d')){
   const x=W*.73,y=H*.52,s=Math.max(.55,Math.min(1.2,W/1050)),lamp=Math.max(0,Math.min(1,(nightBlend-.35)/.45));
