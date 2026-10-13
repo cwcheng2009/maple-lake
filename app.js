@@ -639,6 +639,7 @@ async function startAudio(enable=true){
   }
 }
 function updateAudio(){
+  if(window.lakeMusicState)window.lakeMusicState({paused,sleepFactor});
   if(!soundscape)return;
   soundscape.update({enabled:audioEnabled&&!paused,volume:Number($('volume').value)*sleepFactor,rain,wind:wind+gust,motion:windMotion(),motionTime:time,birds:time<birdUntil||rainWildlife()>.02,insects:time<insectUntil||rainWildlife()>.02,crowSources:crows.map(b=>({id:b.id,onScreen:b.x>=-35&&b.x<=W+35,pan:Math.max(-1,Math.min(1,b.x/W*2-1)),distance:Math.max(0,Math.min(1,(.38-b.y/H)/.30))})),birdPan:birdCenter()*2-1,insectPan:insectCenter*2-1,windPan:windPan(),birdNight:nightBlend,naturalBirds:mode==='auto',birdFrequencies:{...birdFrequencies},birdVolumes:{...birdVolumes},birdCount:Number($('birdCount').value),birdVolume:(1-nightBlend*.85)*(time<birdUntil?1:Math.sqrt(rainWildlife())),insectDensity:Number($('insectDensity').value),insectVolumes:{...insectVolumes},insectVolume:1*(.35+.65*nightBlend)*(time<insectUntil?1:Math.sqrt(rainWildlife()))});
 }
@@ -672,7 +673,7 @@ function showBirdControls(){const type=$('birdType').value;$('birdFrequency').va
 $('birdType').onchange=showBirdControls;
 $('birdVolume').oninput=()=>{birdVolumes[$('birdType').value]=Number($('birdVolume').value);showBirdControls();updateAudio();if(birdVolumes[$('birdType').value]>0){birdUntil=Math.max(birdUntil,time+12);if(soundscape)soundscape.birds(12)}};
 showBirdControls();
-function setMode(m){mode=m;manualThunderHistory=[];manualRainTarget=null;$('auto').classList.toggle('selected',m==='auto');$('manual').classList.toggle('selected',m==='manual');$('auto').setAttribute('aria-pressed',String(m==='auto'));$('manual').setAttribute('aria-pressed',String(m==='manual'));$('modeHelp').textContent=m==='auto'?'下雨 → 漸停 → 鳥語 → 蟲鳴 → 靜息，自然循環。':'按下事件按鈕，或開啟麥克風。音量超過風聲門檻觸發陣風，超過較高雷聲門檻觸發雷鳴；15 秒內觸發 3 次雷鳴會轉為下雨。';nextEvent=time+10;if(m==='auto')resetAuto()} $('auto').onclick=()=>setMode('auto');$('manual').onclick=()=>{setMode('manual');void startMic()};document.querySelectorAll('[data-event]').forEach(b=>b.onclick=async()=>{try{if(paused)return;trigger(b.dataset.event)}catch(e){$('status').textContent='聲音無法啟動，請再按一次開啟聲音。'}});
+function setMode(m){mode=m;manualThunderHistory=[];manualRainTarget=null;$('auto').classList.toggle('selected',m==='auto');$('manual').classList.toggle('selected',m==='manual');$('auto').setAttribute('aria-pressed',String(m==='auto'));$('manual').setAttribute('aria-pressed',String(m==='manual'));$('modeHelp').textContent=m==='auto'?'天氣自然流轉；麥克風聲音觸發可另外開啟。':'固定目前天氣；可調整雨勢、風力，麥克風聲音觸發可另外開啟。';nextEvent=time+10;if(m==='auto'){ $('preset').value='custom';resetAuto();}} $('auto').onclick=()=>setMode('auto');$('manual').onclick=()=>setMode('manual');document.querySelectorAll('[data-event]').forEach(b=>b.onclick=async()=>{try{if(paused)return;trigger(b.dataset.event)}catch(e){$('status').textContent='聲音無法啟動，請再按一次開啟聲音。'}});
 canvas.onclick=e=>{if(e.clientY>H*.43){ripples.push({x:e.clientX,y:e.clientY,age:0});if(soundscape&&audioEnabled)soundscape.waterDrop(.5,{pan:e.clientX/W*2-1,large:true,depth:.8,visual:false})}};
 // Both values use the same RMS scale: 0–0.5 maps to 0–100%.
 function showInputLevel(rms=0){
@@ -694,7 +695,7 @@ function stopMic(){
   if(micStream)micStream.getTracks().forEach(t=>t.stop());
   if(micSource)micSource.disconnect();if(micAnalyser)micAnalyser.disconnect();if(micSink)micSink.disconnect();
   micStream=null;micSource=null;micAnalyser=null;micSink=null;currentInputRms=0;showInputLevel();
-  $('mic').textContent='啟用麥克風互動';$('meter').style.color='#627c6b';
+  $('mic').textContent='開啟聲音觸發（麥克風）';$('mic').setAttribute('aria-pressed','false');$('meter').style.color='#627c6b';
 }
 async function startMic(){
   if(micStarting||micStream)return;
@@ -710,7 +711,7 @@ async function startMic(){
     // Keep the graph rendered without playing the microphone back through speakers.
     micSource.connect(micAnalyser);micAnalyser.connect(micSink);micSink.connect(ctx.destination);
     micData=new Float32Array(micAnalyser.fftSize);micOpenedAt=performance.now();previousLevel=0;micArmed=true;thunderArmed=true;lastTrigger=lastThunderTrigger=performance.now()-1800;
-    setMode('manual');$('mic').textContent='停止麥克風';
+    $('mic').textContent='關閉聲音觸發';$('mic').setAttribute('aria-pressed','true');
     const track=micStream.getAudioTracks()[0];
     $('status').textContent='已連接 '+(track.label||'麥克風')+'；音量僅在本機分析。';
     track.onended=()=>{stopMic();$('status').textContent='麥克風連線已中斷，請重新啟用。'};
@@ -723,7 +724,7 @@ async function startMic(){
 $('mic').onclick=()=>micStream?stopMic():startMic();
 let previousLevel=0;function frame(stamp){const dt=Math.min((stamp-last)/1000||.016,.12);if(document.hidden){last=stamp;requestAnimationFrame(frame);return;}if(!ecoMode||dt>=1/30){last=stamp;if(!paused)draw(dt);}if(micAnalyser){micAnalyser.getFloatTimeDomainData(micData);const rms=Math.min(.5,Math.sqrt(micData.reduce((a,v)=>a+v*v,0)/micData.length)*Number($('inputGain').value));currentInputRms=rms;showInputLevel(rms);$('meter').style.color=rms>Number($('threshold').value)?'#edc989':'#627c6b';const windThreshold=Number($('threshold').value),thunderThreshold=Number($('thunderThreshold').value);
 if(rms<windThreshold*.75)micArmed=true;if(rms<thunderThreshold*.75)thunderArmed=true;
-if(mode==='manual'){
+if(!paused&&!document.hidden){
   if(thunderArmed&&rms>=thunderThreshold&&stamp-lastThunderTrigger>=1800){lastThunderTrigger=lastTrigger=stamp;thunderArmed=false;micArmed=false;trigger('thunder')}
   else if(micArmed&&rms>=windThreshold&&rms<thunderThreshold&&stamp-lastTrigger>=1800){lastTrigger=stamp;micArmed=false;trigger('wind')}
 }previousLevel=previousLevel*.8+rms*.2}updateAudio();requestAnimationFrame(frame)}resetAuto();draw(0);requestAnimationFrame(frame);$('pause').textContent=paused?'繼續播放':'暫停畫面與聲音';$('pause').onclick=()=>{paused=!paused;$('pause').textContent=paused?'繼續播放':'暫停畫面與聲音';updateAudio();$('audioHealth').textContent=paused?'畫面與聲音已暫停':audioEnabled?'音景已恢復':'聲音已關閉'};$('fullscreen').onclick=async()=>{try{if(document.fullscreenElement)await document.exitFullscreen();else await document.documentElement.requestFullscreen()}catch(e){$('status').textContent='此瀏覽器不支援全螢幕。'}};addEventListener('pagehide',stopMic);
@@ -755,7 +756,7 @@ $('preset').onchange=()=>{
  $('dayMode').value=p.day;$('rain').value=rain;$('wind').value=wind;
  ['sparrow','dove','crow'].forEach((type,i)=>birdVolumes[type]=p.birds[i]);insectVolumes.recorded=p.bugs;insectVolumes.cricket=0;
  birdUntil=time+12;insectUntil=time+12;showBirdControls();showInsectControls();updateAudio();
- $('modeHelp').textContent='預設音景持續播放；可調整參數，或切回自動流轉。';
+ $('modeHelp').textContent='固定情境已套用；可調整參數，或切回自動流轉。麥克風聲音觸發維持原設定。';
  $('status').textContent=$('preset').selectedOptions[0].textContent+' · 按開啟聲音聆聽';
 };
 if(matchMedia('(max-width:700px)').matches){$('parameterPanel').hidden=true;$('togglePanel').textContent='顯示參數';$('togglePanel').setAttribute('aria-expanded','false');}
