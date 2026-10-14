@@ -646,7 +646,7 @@ async function startAudio(enable=true,waitForRain=true){
 function updateAudio(){
   if(window.lakeMusicState)window.lakeMusicState({paused,sleepFactor});
   if(!soundscape)return;
-  soundscape.update({enabled:audioEnabled&&!paused,volume:Number($('volume').value)*sleepFactor,rain,wind:wind+gust,motion:windMotion(),motionTime:time,birds:time<birdUntil||rainWildlife()>.02,insects:time<insectUntil||rainWildlife()>.02,crowSources:crows.map(b=>({id:b.id,onScreen:b.x>=-35&&b.x<=W+35,pan:Math.max(-1,Math.min(1,b.x/W*2-1)),distance:Math.max(0,Math.min(1,(.38-b.y/H)/.30))})),birdPan:birdCenter()*2-1,insectPan:insectCenter*2-1,windPan:windPan(),birdNight:nightBlend,naturalBirds:mode==='auto',birdFrequencies:{...birdFrequencies},birdVolumes:{...birdVolumes},birdCount:Number($('birdCount').value),birdVolume:(1-nightBlend*.85)*(time<birdUntil?1:Math.sqrt(rainWildlife())),insectDensity:Number($('insectDensity').value),insectVolumes:{...insectVolumes},insectVolume:1*(.35+.65*nightBlend)*(time<insectUntil?1:Math.sqrt(rainWildlife()))});
+  soundscape.update({enabled:audioEnabled&&!paused,volume:Number($('volume').value)*sleepFactor,rain,wind:wind+gust,motion:windMotion(),motionTime:time,birds:time<birdUntil||rainWildlife()>.02,insects:time<insectUntil||rainWildlife()>.02,crowSources:crows.map(b=>({id:b.id,onScreen:b.x>=-35&&b.x<=W+35,pan:Math.max(-1,Math.min(1,b.x/W*2-1)),distance:Math.max(0,Math.min(1,(.38-b.y/H)/.30))})),birdPan:birdCenter()*2-1,insectPan:insectCenter*2-1,windPan:windPan(),birdNight:nightBlend,naturalBirds:mode==='auto',birdFrequencies:{...birdFrequencies},birdVolumes:{...birdVolumes},birdCount:Number($('birdCount').value),birdVolume:(1-nightBlend*.85)*(time<birdUntil?1:Math.sqrt(rainWildlife())),insectDensity:Number($('insectDensity').value),insectVolumes:{...insectVolumes},insectVolume:time<insectUntil?1:(.35+.65*nightBlend)*Math.sqrt(rainWildlife())});
 }
 function chirp(){if(soundscape&&audioEnabled)soundscape.birds()}
 function thunder(){
@@ -664,7 +664,7 @@ function thunder(){
   }
   stormEnd=start+offset*1000+1800;return true;
 }
-function trigger(kind){let stormRain=false;if(kind==='rain'){manualRainTarget=null;rain=.8;$('rain').value=rain;if(mode==='auto'){autoPhase=0;autoStarted=time;autoDuration=18;autoRainFrom=rain;autoRain=rain;autoLightFrom=dryLight;nextEvent=time+8;}}if(kind==='wind'){gust=1;gustStart=time}if(kind==='thunder'){gust=.7;gustStart=time;const sounded=thunder();if(!sounded){if(performance.now()<stormEnd)$('status').textContent='雷鳴冷卻中，約 '+Math.ceil((stormEnd-performance.now())/1000)+' 秒後可再次觸發。';return;}if(mode==='manual'){const now=performance.now();manualThunderHistory=manualThunderHistory.filter(at=>now-at<=15000);manualThunderHistory.push(now);if(manualThunderHistory.length>=3){manualRainTarget=Math.max(rain,.8);manualThunderHistory=[];stormRain=true}}}if(kind==='bird'){birdUntil=time+9;chirp()}if(kind==='insect'){insectCenter=.15+Math.random()*.7;insectUntil=time+12;if(soundscape&&audioEnabled)soundscape.insects()}const names={rain:'雨滴落在湖面',wind:'陣風掠過楓林，樹葉沙沙作響',thunder:'連續雷擊劃過天空，殘響在湖畔迴盪',bird:'鳥群飛過天空',insect:'林間蟲鳴，微光浮現'};$('status').textContent=stormRain?'15 秒內連續觸發 3 次雷鳴，雨勢逐漸增強。':names[kind];updateAudio()}
+function trigger(kind){let stormRain=false;if(kind==='rain'){manualRainTarget=null;rain=.8;$('rain').value=rain;if(mode==='auto'){autoPhase=0;autoStarted=time;autoDuration=18;autoRainFrom=rain;autoRain=rain;autoLightFrom=dryLight;nextEvent=time+8;}}if(kind==='wind'){gust=1;gustStart=time}if(kind==='thunder'){gust=.7;gustStart=time;const sounded=thunder();if(!sounded){if(performance.now()<stormEnd)$('status').textContent='雷鳴冷卻中，約 '+Math.ceil((stormEnd-performance.now())/1000)+' 秒後可再次觸發。';return;}if(mode==='manual'){const now=performance.now();manualThunderHistory=manualThunderHistory.filter(at=>now-at<=15000);manualThunderHistory.push(now);if(manualThunderHistory.length>=3){manualRainTarget=Math.max(rain,.8);manualThunderHistory=[];stormRain=true}}}if(kind==='bird'){birdUntil=time+9;chirp()}if(kind==='insect'){if(Number($('insectDensity').value)===0||!Object.values(insectVolumes).some(v=>v>0)){$('status').textContent='蟲鳴密度或蟲聲音量為零，請在鳥語與蟲鳴中調高。';$('insectType').closest('details').open=true;return;}insectCenter=.15+Math.random()*.7;insectUntil=time+12;if(soundscape&&audioEnabled)soundscape.insects()}const names={rain:'雨滴落在湖面',wind:'陣風掠過楓林，樹葉沙沙作響',thunder:'連續雷擊劃過天空，殘響在湖畔迴盪',bird:'鳥群飛過天空',insect:'林間蟲鳴，微光浮現'};$('status').textContent=stormRain?'15 秒內連續觸發 3 次雷鳴，雨勢逐漸增強。':names[kind];updateAudio()}
 $('audio').onclick=async()=>{try{if(audioEnabled&&ctx.state==='running'){audioEnabled=false;$('soundPrompt').hidden=false;$('audio').textContent='開啟聲音 ↗';updateAudio()}else await startAudio()}catch(e){$('status').textContent='無法啟動聲音，請使用支援 Web Audio 的瀏覽器。'}};
 for(const id of ['rain','wind','volume'])$(id).oninput=()=>{if(id==='rain')manualRainTarget=null;rain=Number($('rain').value);wind=Number($('wind').value);updateAudio()};
 for(const id of ['birdCount','insectDensity'])$(id).oninput=()=>{
@@ -799,12 +799,14 @@ setInterval(()=>{
  const frequency=Number($('duckFrequency').value),volume=Number($('duckVolume').value);
  if(!frequency||!volume)return;
  for(const bird of lakeDucks){
-  if(bird.nextCall===undefined){bird.nextCall=time+3+Math.random()*25;continue;}
+  if(bird.nextCall===undefined){bird.nextCall=time+1+Math.random()*4;continue;}
   if(bird.state!=='swim'||time<bird.nextCall)continue;
-  bird.nextCall=time+(10+Math.random()*35)/Math.max(.1,frequency);
+  bird.nextCall=time+(6+Math.random()*12)/(.25+frequency*1.5);
   soundscape.duckCall({pan:Math.max(-1,Math.min(1,bird.x*2-1))},volume);
  }
 },500);
 
 // Make thunder cooldown visible instead of silently ignoring repeated clicks.
 setInterval(()=>{const button=document.querySelector('[data-event="thunder"]'),remaining=Math.max(0,stormEnd-performance.now());button.disabled=remaining>0;button.querySelector('span').textContent=remaining>0?'稍候 '+Math.ceil(remaining/1000)+'s':'雷鳴';button.setAttribute('aria-label',remaining>0?'雷鳴冷卻中':'觸發雷鳴');},100);
+
+$('duckPreview').onclick=async()=>{try{if(paused){$('status').textContent='請先繼續播放，再試聽水鴨。';return;}await startAudio(true,false);if(!soundscape.duckRecording)await soundscape.loadWildlifeRecordings();const volume=Number($('duckVolume').value);if(!volume){$('status').textContent='水鴨音量為零，請先調高。';return;}const bird=lakeDucks.find(b=>b.state==='swim');soundscape.duckCall({pan:bird?Math.max(-1,Math.min(1,bird.x*2-1)):0},volume);$('status').textContent='試聽水鴨實錄；自動叫聲會隨游泳中的水鴨位置播放。';}catch{$('status').textContent='水鴨錄音載入失敗，請稍後重試。'}};

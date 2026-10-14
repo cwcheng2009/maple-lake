@@ -36,3 +36,11 @@ Original file unmodified; runtime volume normalization, spatial panning and shor
 
 Duck: pillonoise, mallard and mandarin ducks (with take off), CC0. https://freesound.org/people/pillonoise/sounds/263104/
 Thunder: Dave_Girtsman, Thunder, CC0. https://freesound.org/people/Dave_Girtsman/sounds/332543/
+
+
+Additional thunder recordings (2026-10-14), all CC0 1.0:
+- thunder/danilo.mp3: Thunder Clap — DaniloSFX. https://freesound.org/people/DaniloSFX/sounds/672776/
+- thunder/seth.mp3: big thunder clap — seth-m. https://freesound.org/people/seth-m/sounds/458015/
+- thunder/blue.mp3: Heavy Thunder Strike - no Rain - QUADRO.wav — BlueDelta. https://freesound.org/people/BlueDelta/sounds/446753/
+License: https://creativecommons.org/publicdomain/zero/1.0/
+Source files: publicly available Freesound HQ MP3 previews (stereo), not original PolyWAV files. Modified by trimming to main thunder attack, excerpting up to 17 seconds, normalizing loudness and fading tails. Browser varies playback rate and stereo position.

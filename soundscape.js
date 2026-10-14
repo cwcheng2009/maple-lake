@@ -66,12 +66,29 @@ class LakeSoundscape {
     this.active = false;
   }
   async loadWildlifeRecordings(){
-    await Promise.all(['duck','thunder'].map(async name=>{
-      if(this[name+'Recording'])return;
-      const response=await fetch('assets/'+name+'.mp3');if(!response.ok)throw Error(name+' recording unavailable');
-      const buffer=await this.ctx.decodeAudioData(await response.arrayBuffer());
-      this[name+'Recording']=name==='thunder'?this.alignThunderAttack(buffer):buffer;
-    }));
+    this.recordingLoads??={};this.thunderRecordings??=[];
+    const load=(id,path,isThunder)=>{
+      if(this.recordingLoads[id])return this.recordingLoads[id];
+      this.recordingLoads[id]=(async()=>{
+        const response=await fetch(path);if(!response.ok)throw Error(id+' recording unavailable');
+        const buffer=await this.ctx.decodeAudioData(await response.arrayBuffer());
+        if(isThunder){const aligned=this.alignThunderAttack(buffer);this.thunderRecordings.push({id,buffer:aligned});if(id==='original')this.thunderRecording=aligned;}
+        else{this.duckRecording=buffer;this.prepareDuckCalls(buffer);}
+      })().catch(error=>{delete this.recordingLoads[id];throw error;});
+      return this.recordingLoads[id];
+    };
+    await Promise.allSettled([load('duck','assets/duck.mp3',false),load('original','assets/thunder.mp3',true),...['danilo','seth','blue'].map(id=>load(id,'assets/thunder/'+id+'.mp3',true))]);
+  }
+  chooseThunderRecording(){
+    const recordings=this.thunderRecordings||[];if(!recordings.length)return this.thunderRecording?{id:'original',buffer:this.thunderRecording}:null;
+    this.thunderBag=(this.thunderBag||[]).filter(id=>recordings.some(r=>r.id===id));
+    if(!this.thunderBag.length){
+      this.thunderBag=recordings.map(r=>r.id);
+      for(let i=this.thunderBag.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[this.thunderBag[i],this.thunderBag[j]]=[this.thunderBag[j],this.thunderBag[i]];}
+      const last=this.thunderBag.length-1;
+      if(last>0&&this.thunderBag[last]===this.lastThunderRecordingId)[this.thunderBag[0],this.thunderBag[last]]=[this.thunderBag[last],this.thunderBag[0]];
+    }
+    const id=this.thunderBag.pop();this.lastThunderRecordingId=id;return recordings.find(r=>r.id===id);
   }
   alignThunderAttack(buffer){
     // Locate the first substantial attack, leaving a short natural pre-roll.
@@ -86,14 +103,21 @@ class LakeSoundscape {
     for(let ch=0;ch<buffer.numberOfChannels;ch++)aligned.copyToChannel(buffer.getChannelData(ch).subarray(start),ch);
     this.thunderAttackTrimSeconds=start/buffer.sampleRate;return aligned;
   }
+  prepareDuckCalls(buffer){
+    const data=buffer.getChannelData(0),sr=buffer.sampleRate,candidates=[];
+    for(let t=0;t<buffer.duration-2.4;t+=.25){let sum=0,n=0;for(let i=Math.floor(t*sr);i<Math.min(data.length,(t+1.2)*sr);i+=8){sum+=data[i]*data[i];n++;}candidates.push({offset:Math.max(0,t-.1),rms:Math.sqrt(sum/Math.max(1,n))});}
+    candidates.sort((a,b)=>b.rms-a.rms);this.duckClips=[];
+    for(const clip of candidates){if(this.duckClips.every(c=>Math.abs(c.offset-clip.offset)>4))this.duckClips.push(clip);if(this.duckClips.length===8)break;}
+  }
   duckCall(bird,volume){
     if(!this.active||!this.duckRecording||volume<=0)return;
+    const clips=this.duckClips||[],choices=clips.filter(c=>c!==this.lastDuckClip),clip=choices[Math.floor(Math.random()*choices.length)]||clips[0]||{offset:0,rms:.03};this.lastDuckClip=clip;
     const source=this.ctx.createBufferSource(),gain=this.ctx.createGain(),pan=this.ctx.createStereoPanner(),filter=this.ctx.createBiquadFilter();
     source.buffer=this.duckRecording;source.playbackRate.value=this.random(.94,1.06);
-    filter.type='highpass';filter.frequency.value=250;pan.pan.value=bird.pan;
-    const now=this.ctx.currentTime,duration=this.random(1.3,2.6),offset=this.random(2,Math.max(3,source.buffer.duration-12));
-    gain.gain.setValueAtTime(0,now);gain.gain.linearRampToValueAtTime(volume*.7,now+.08);gain.gain.setValueAtTime(volume*.7,now+duration-.25);gain.gain.linearRampToValueAtTime(0,now+duration);
-    source.connect(filter).connect(gain).connect(pan).connect(this.output);source.start(now,offset,duration);
+    filter.type='highpass';filter.frequency.value=160;pan.pan.value=bird.pan;
+    const now=this.ctx.currentTime,length=2.4,duration=length/source.playbackRate.value,level=volume*.85*Math.min(6,.16/Math.max(.005,clip.rms));
+    gain.gain.setValueAtTime(0,now);gain.gain.linearRampToValueAtTime(level,now+.035);gain.gain.setValueAtTime(level,now+duration-.3);gain.gain.linearRampToValueAtTime(0,now+duration);
+    source.connect(filter).connect(gain).connect(pan).connect(this.output);source.start(now,clip.offset,length);source.stop(now+duration+.02);
     source.onended=()=>{source.disconnect();filter.disconnect();gain.disconnect();pan.disconnect();};
   }
   async loadDoveRecording(){
@@ -113,12 +137,13 @@ class LakeSoundscape {
   }
 
   recordedDove(at,pan){
-    const source=this.ctx.createBufferSource(),gain=this.ctx.createGain();source.buffer=this.doveRecording;
-    source.playbackRate.value=this.birdPlaybackRate('dove');
-    const duration=source.buffer.duration/source.playbackRate.value,level=this.doveNormalization;
-    gain.gain.setValueAtTime(.00001,at);gain.gain.linearRampToValueAtTime(level,at+.25);gain.gain.setValueAtTime(level,at+duration-.35);gain.gain.linearRampToValueAtTime(.00001,at+duration);
-    source.connect(gain);const panner=this.route(gain,pan,'bird:dove');source.start(at);source.stop(at+duration);
-    source.onended=()=>{source.disconnect();gain.disconnect();this.crowPanners.delete(panner);panner.disconnect()};
+    this.doveVoices??=new Set();if(this.doveVoices.size>=(this.doveLimit??1))return;
+    const source=this.ctx.createBufferSource(),gain=this.ctx.createGain();source.buffer=this.doveRecording;source.playbackRate.value=this.birdPlaybackRate('dove');
+    const phrases=[0,2.7,5.3,8.2,11.2,14,16.8].filter(t=>t+2.4<source.buffer.duration),available=phrases.filter(t=>t!==this.lastDoveOffset),offset=available[Math.floor(Math.random()*available.length)]??0;this.lastDoveOffset=offset;
+    const duration=2.4/source.playbackRate.value,level=this.doveNormalization;this.lastDovePhraseDuration=duration;
+    gain.gain.setValueAtTime(.00001,at);gain.gain.linearRampToValueAtTime(level,at+.08);gain.gain.setValueAtTime(level,at+duration-.2);gain.gain.linearRampToValueAtTime(.00001,at+duration);
+    source.connect(gain);const panner=this.route(gain,pan,'bird:dove');this.doveVoices.add(source);source.start(at,offset,2.4);source.stop(at+duration+.02);
+    source.onended=()=>{this.doveVoices.delete(source);source.disconnect();gain.disconnect();this.crowPanners.delete(panner);panner.disconnect()};
   }
   async loadCrowRecording(){
     if(this.crowRecording)return;if(this.crowLoading)return this.crowLoading;
@@ -169,7 +194,7 @@ class LakeSoundscape {
         for(let i=0;i<fade;i++){const f=i/fade;data[i]=input[original.length-fade+i]*(1-f)+input[i]*f}
         if(ch===0)for(let i=0;i<data.length;i+=8)energy+=data[i]*data[i];
       }
-      const rms=Math.sqrt(energy/Math.ceil(loop.length/8));this.insectNormalization=Math.min(4,.2/Math.max(.01,rms));
+      const rms=Math.sqrt(energy/Math.ceil(loop.length/8));this.insectNormalization=Math.min(24,.18/Math.max(.003,rms));
       const source=this.ctx.createBufferSource();source.buffer=loop;source.loop=true;
       const filter=this.ctx.createBiquadFilter();filter.type='highpass';filter.frequency.value=550;
       const gain=this.ctx.createGain();gain.gain.value=0;const panner=this.ctx.createStereoPanner();
@@ -343,8 +368,9 @@ class LakeSoundscape {
   }
   thunder(now=this.ctx.currentTime+.1, pan=this.random(-.35,.35), strength=1, character='near') {
     if (!this.active) return;
-    if(this.thunderRecording){
-      const source=this.ctx.createBufferSource(),gain=this.ctx.createGain(),panner=this.ctx.createStereoPanner();source.buffer=this.thunderRecording;
+    const recording=this.chooseThunderRecording();
+    if(recording){
+      const source=this.ctx.createBufferSource(),gain=this.ctx.createGain(),panner=this.ctx.createStereoPanner();source.buffer=recording.buffer;
       source.playbackRate.value=character==='near'?this.random(.92,1.08):this.random(.78,.92);panner.pan.value=pan;
       const duration=source.buffer.duration/source.playbackRate.value,level=strength*(character==='near'?.95:.6);
       gain.gain.setValueAtTime(0,now);gain.gain.linearRampToValueAtTime(level,now+.035);gain.gain.setValueAtTime(level,now+Math.max(.1,duration-1.5));gain.gain.linearRampToValueAtTime(0,now+duration);
@@ -425,6 +451,8 @@ class LakeSoundscape {
     if(!enabled)this.output.gain.setValueAtTime(0,now);
     else this.output.gain.setTargetAtTime(volume*.8,now,.08);
     for(const panner of this.crowPanners){const bird=crowSources.find(b=>b.id===panner._crowId);if(bird){panner.pan.setTargetAtTime(bird.pan,now,.04);if(!panner._fading)panner._distanceGain.gain.setTargetAtTime(1-(bird.distance??0)*.65,now,.25);if(panner._distanceFilter)panner._distanceFilter.frequency.setTargetAtTime(8500-(bird.distance??0)*5500,now,.25);}if(panner._distanceGain&&!panner._fading&&(!bird||!bird.onScreen)){panner._fading=true;const gain=panner._distanceGain.gain;gain.cancelScheduledValues(now);gain.setValueAtTime(Math.max(.0001,gain.value),now);gain.linearRampToValueAtTime(0,now+3.5);panner._crowSource.stop(now+3.55);}}
+    this.doveLimit=Math.max(0,Math.floor(birdCount));this.doveVoices??=new Set();
+    for(const source of [...this.doveVoices].slice(this.doveLimit)){try{source.stop(now+.05);}catch{}this.doveVoices.delete(source);}
     const realInsects=!!this.insectRecording;
     if(this.insectRecording){
       this.insectRecording.gain.gain.setTargetAtTime(realInsects&&insectDensity>0&&(insects||now<this.insectsEnd)?insectVolume*(insectVolumes.recorded??0)*.85*this.insectNormalization*(.5+insectDensity*.5):0,now,.35);
@@ -495,7 +523,7 @@ class LakeSoundscape {
         if((birdVolumes[type]??0)<=0||(birdFrequencies[type]??.5)<=0||now<this.nextSpeciesBird[type])continue;
         const activity=naturalBirds?daylight*(type==='dove'?(.28+.72*dawnDusk):1):1;
         if(activity>.01)this.birdPhrase(now+.01,Math.max(-1,Math.min(1,birdPan+this.random(-.08,.08))),type);
-        this.nextSpeciesBird[type]=now+(activity>.01&&type==='dove'&&this.doveRecording?this.doveRecording.duration/.89:0)+this.random(2.2,8)*5/Math.max(1,birdCount)/Math.max(.12,activity)*.5/Math.max(.05,birdFrequencies[type]??.5);
+        this.nextSpeciesBird[type]=type==='dove'?now+(this.lastDovePhraseDuration??2.7)+this.random(8,16)/Math.sqrt(Math.max(1,birdCount))/Math.max(.12,activity)*.5/Math.max(.05,birdFrequencies[type]??.5):now+this.random(2.2,8)*5/Math.max(1,birdCount)/Math.max(.12,activity)*.5/Math.max(.05,birdFrequencies[type]??.5);
       }
       const ids=new Set(crowSources.map(b=>b.id));for(const id of this.crowVoices.keys())if(!ids.has(id))this.crowVoices.delete(id);
       for(const bird of crowSources){
