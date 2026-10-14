@@ -762,7 +762,7 @@ $('preset').onchange=()=>{
 if(matchMedia('(max-width:700px)').matches){$('parameterPanel').hidden=true;$('togglePanel').textContent='顯示參數';$('togglePanel').setAttribute('aria-expanded','false');}
 setInterval(()=>{
  $('audio').setAttribute('aria-pressed',String(audioEnabled));
- $('audio').textContent=audioEnabled?'靜音音景':'開啟聲音';
+ $('audio').textContent=audioEnabled?'關閉音景':'聆聽自然';
  $('pause').textContent=paused?'繼續播放':'暫停播放';
 },200);
 
