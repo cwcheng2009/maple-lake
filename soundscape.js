@@ -69,8 +69,22 @@ class LakeSoundscape {
     await Promise.all(['duck','thunder'].map(async name=>{
       if(this[name+'Recording'])return;
       const response=await fetch('assets/'+name+'.mp3');if(!response.ok)throw Error(name+' recording unavailable');
-      this[name+'Recording']=await this.ctx.decodeAudioData(await response.arrayBuffer());
+      const buffer=await this.ctx.decodeAudioData(await response.arrayBuffer());
+      this[name+'Recording']=name==='thunder'?this.alignThunderAttack(buffer):buffer;
     }));
+  }
+  alignThunderAttack(buffer){
+    // Locate the first substantial attack, leaving a short natural pre-roll.
+    const samples=buffer.getChannelData(0),window=Math.max(1,Math.round(buffer.sampleRate*.02));
+    const levels=[];let maximum=0;
+    for(let i=0;i<samples.length;i+=window){let power=0,n=Math.min(window,samples.length-i);for(let j=0;j<n;j++)power+=samples[i+j]*samples[i+j];const rms=Math.sqrt(power/n);levels.push(rms);maximum=Math.max(maximum,rms);}
+    if(maximum<.001)return buffer;
+    const attack=levels.findIndex(level=>level>=maximum*.16);
+    const start=Math.max(0,attack*window-Math.round(buffer.sampleRate*.06));
+    if(start<buffer.sampleRate*.12)return buffer;
+    const aligned=this.ctx.createBuffer(buffer.numberOfChannels,buffer.length-start,buffer.sampleRate);
+    for(let ch=0;ch<buffer.numberOfChannels;ch++)aligned.copyToChannel(buffer.getChannelData(ch).subarray(start),ch);
+    this.thunderAttackTrimSeconds=start/buffer.sampleRate;return aligned;
   }
   duckCall(bird,volume){
     if(!this.active||!this.duckRecording||volume<=0)return;

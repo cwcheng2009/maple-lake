@@ -651,6 +651,8 @@ function updateAudio(){
 function chirp(){if(soundscape&&audioEnabled)soundscape.birds()}
 function thunder(){
   const start=performance.now();if(start<stormEnd)return false;
+  if(audioEnabled&&ctx?.state!=='running'){$('status').textContent='聲音引擎已暫停，請按恢復聲音後再觸發雷鳴。';return false;}
+  if(audioEnabled)updateAudio();
   const count=Math.random()<.4?1:2;let offset=0;
   const firstCharacter=count===2?'near':(Math.random()<.7?'near':'far');
   for(let i=0;i<count;i++){
@@ -662,7 +664,7 @@ function thunder(){
   }
   stormEnd=start+offset*1000+1800;return true;
 }
-function trigger(kind){let stormRain=false;if(kind==='rain'){manualRainTarget=null;rain=.8;$('rain').value=rain;if(mode==='auto'){autoPhase=0;autoStarted=time;autoDuration=18;autoRainFrom=rain;autoRain=rain;autoLightFrom=dryLight;nextEvent=time+8;}}if(kind==='wind'){gust=1;gustStart=time}if(kind==='thunder'){gust=.7;gustStart=time;if(thunder()&&mode==='manual'){const now=performance.now();manualThunderHistory=manualThunderHistory.filter(at=>now-at<=15000);manualThunderHistory.push(now);if(manualThunderHistory.length>=3){manualRainTarget=Math.max(rain,.8);manualThunderHistory=[];stormRain=true}}}if(kind==='bird'){birdUntil=time+9;chirp()}if(kind==='insect'){insectCenter=.15+Math.random()*.7;insectUntil=time+12;if(soundscape&&audioEnabled)soundscape.insects()}const names={rain:'雨滴落在湖面',wind:'陣風掠過楓林，樹葉沙沙作響',thunder:'連續雷擊劃過天空，殘響在湖畔迴盪',bird:'鳥群飛過天空',insect:'林間蟲鳴，微光浮現'};$('status').textContent=stormRain?'15 秒內連續觸發 3 次雷鳴，雨勢逐漸增強。':names[kind];updateAudio()}
+function trigger(kind){let stormRain=false;if(kind==='rain'){manualRainTarget=null;rain=.8;$('rain').value=rain;if(mode==='auto'){autoPhase=0;autoStarted=time;autoDuration=18;autoRainFrom=rain;autoRain=rain;autoLightFrom=dryLight;nextEvent=time+8;}}if(kind==='wind'){gust=1;gustStart=time}if(kind==='thunder'){gust=.7;gustStart=time;const sounded=thunder();if(!sounded){if(performance.now()<stormEnd)$('status').textContent='雷鳴冷卻中，約 '+Math.ceil((stormEnd-performance.now())/1000)+' 秒後可再次觸發。';return;}if(mode==='manual'){const now=performance.now();manualThunderHistory=manualThunderHistory.filter(at=>now-at<=15000);manualThunderHistory.push(now);if(manualThunderHistory.length>=3){manualRainTarget=Math.max(rain,.8);manualThunderHistory=[];stormRain=true}}}if(kind==='bird'){birdUntil=time+9;chirp()}if(kind==='insect'){insectCenter=.15+Math.random()*.7;insectUntil=time+12;if(soundscape&&audioEnabled)soundscape.insects()}const names={rain:'雨滴落在湖面',wind:'陣風掠過楓林，樹葉沙沙作響',thunder:'連續雷擊劃過天空，殘響在湖畔迴盪',bird:'鳥群飛過天空',insect:'林間蟲鳴，微光浮現'};$('status').textContent=stormRain?'15 秒內連續觸發 3 次雷鳴，雨勢逐漸增強。':names[kind];updateAudio()}
 $('audio').onclick=async()=>{try{if(audioEnabled&&ctx.state==='running'){audioEnabled=false;$('soundPrompt').hidden=false;$('audio').textContent='開啟聲音 ↗';updateAudio()}else await startAudio()}catch(e){$('status').textContent='無法啟動聲音，請使用支援 Web Audio 的瀏覽器。'}};
 for(const id of ['rain','wind','volume'])$(id).oninput=()=>{if(id==='rain')manualRainTarget=null;rain=Number($('rain').value);wind=Number($('wind').value);updateAudio()};
 for(const id of ['birdCount','insectDensity'])$(id).oninput=()=>{
@@ -730,7 +732,7 @@ $('mic').onclick=()=>micStream?stopMic():startMic();
 let previousLevel=0;function frame(stamp){const dt=Math.min((stamp-last)/1000||.016,.12);if(document.hidden){last=stamp;requestAnimationFrame(frame);return;}if(!ecoMode||dt>=1/30){last=stamp;if(!paused)draw(dt);}if(micAnalyser){micAnalyser.getFloatTimeDomainData(micData);const rms=Math.min(.5,Math.sqrt(micData.reduce((a,v)=>a+v*v,0)/micData.length)*Number($('inputGain').value));currentInputRms=rms;showInputLevel(rms);$('meter').style.color=rms>Number($('threshold').value)?'#edc989':'#627c6b';const windThreshold=Number($('threshold').value),thunderThreshold=Number($('thunderThreshold').value);
 if(rms<windThreshold*.75)micArmed=true;if(rms<thunderThreshold*.75)thunderArmed=true;
 if(!paused&&!document.hidden){
-  if(thunderArmed&&rms>=thunderThreshold&&stamp-lastThunderTrigger>=1800){lastThunderTrigger=lastTrigger=stamp;thunderArmed=false;micArmed=false;trigger('thunder')}
+  if(thunderArmed&&rms>=thunderThreshold&&stamp-lastThunderTrigger>=1800&&stamp>=stormEnd){lastThunderTrigger=lastTrigger=stamp;thunderArmed=false;micArmed=false;trigger('thunder')}
   else if(micArmed&&rms>=windThreshold&&rms<thunderThreshold&&stamp-lastTrigger>=1800){lastTrigger=stamp;micArmed=false;trigger('wind')}
 }previousLevel=previousLevel*.8+rms*.2}updateAudio();requestAnimationFrame(frame)}resetAuto();draw(0);requestAnimationFrame(frame);$('pause').textContent=paused?'繼續播放':'暫停畫面與聲音';$('pause').onclick=()=>{paused=!paused;$('pause').textContent=paused?'繼續播放':'暫停畫面與聲音';updateAudio();$('audioHealth').textContent=paused?'畫面與聲音已暫停':audioEnabled?'音景已恢復':'聲音已關閉'};$('fullscreen').onclick=async()=>{try{if(document.fullscreenElement)await document.exitFullscreen();else await document.documentElement.requestFullscreen()}catch(e){$('status').textContent='此瀏覽器不支援全螢幕。'}};addEventListener('pagehide',stopMic);
 
@@ -803,3 +805,6 @@ setInterval(()=>{
   soundscape.duckCall({pan:Math.max(-1,Math.min(1,bird.x*2-1))},volume);
  }
 },500);
+
+// Make thunder cooldown visible instead of silently ignoring repeated clicks.
+setInterval(()=>{const button=document.querySelector('[data-event="thunder"]'),remaining=Math.max(0,stormEnd-performance.now());button.disabled=remaining>0;button.querySelector('span').textContent=remaining>0?'稍候 '+Math.ceil(remaining/1000)+'s':'雷鳴';button.setAttribute('aria-label',remaining>0?'雷鳴冷卻中':'觸發雷鳴');},100);
