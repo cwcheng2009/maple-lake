@@ -627,7 +627,7 @@ drawRainStreaks(dt);
 drawNight();
 drawDucks(true);drawCrows();if(time<birdUntil||rainWildlife()>.08&&nightBlend<.8){for(let i=0;i<Number($('birdCount').value);i++){let x=((time*48+i*49)% (W+200))-100;const y=H*.17+Math.sin(time+i)*20;const audible=Object.keys(birdVolumes).filter(t=>birdVolumes[t]>0);if(!audible.length)continue;const type=audible[i%audible.length];if(type==='crow'||birdFrequencies[type]===0)continue;x=((time*48+i*49)%(W+200+240*(1/birdFrequencies[type]-1)))-100;if(x>W+50)continue;const span=type==='crow'?13:type==='dove'?10:7;c.strokeStyle=type==='crow'?'#151c20':'#293e38';c.lineWidth=type==='crow'?3:2;c.beginPath();c.moveTo(x-span,y+Math.sin(time*(type==='crow'?5:9))*4);c.lineTo(x,y);c.lineTo(x+span,y+Math.sin(time*(type==='crow'?5:9))*4);c.stroke()}}
 if(time<insectUntil||rainWildlife()>.08){for(let i=0;i<Math.round(Number($('insectDensity').value)*36);i++)ellipse((i%2?W*.91:W*.09)+Math.sin(i*14)*W*.025+Math.sin(time+i)*5,H*.72+Math.sin(i*14)*H*.09+Math.cos(time+i)*5,2,2,`rgba(232,220,128,${.4+.4*Math.sin(time*3+i)})`)}drawLightning();}
-async function startAudio(enable=true){
+async function startAudio(enable=true,waitForRain=true){
   if(enable&&!sleepDeadline)sleepFactor=1;
   if(!ctx){ctx=new AudioContext();soundscape=new LakeSoundscape(ctx);soundscape.onDrop=(x,depth)=>{if(!paused&&rain>.001)ripples.push({x:x*W,y:H*(.46+depth*.45),age:0})}}
   await ctx.resume();
@@ -639,8 +639,8 @@ async function startAudio(enable=true){
   if(soundscape.rainRecording)$('status').textContent='自然雨聲錄音已就緒 · Ylmir / CC0';
   if(!soundscape.rainRecording){
     $('status').textContent='正在載入自然雨聲錄音…';
-    try{await soundscape.loadRainRecording();$('status').textContent='自然雨聲錄音已就緒 · Ylmir / CC0';updateAudio()}
-    catch(error){$('status').textContent='雨聲錄音載入失敗，暫用合成雨聲；請重新開啟聲音重試。'}
+    const loading=soundscape.loadRainRecording().then(()=>{if(waitForRain)$('status').textContent='自然雨聲錄音已就緒 · Ylmir / CC0';updateAudio()}).catch(()=>{if(waitForRain)$('status').textContent='雨聲錄音載入失敗，暫用合成雨聲；請重新開啟聲音重試。'});
+    if(waitForRain)await loading;
   }
 }
 function updateAudio(){
@@ -678,7 +678,7 @@ function showBirdControls(){const type=$('birdType').value;$('birdFrequency').va
 $('birdType').onchange=showBirdControls;
 $('birdVolume').oninput=()=>{birdVolumes[$('birdType').value]=Number($('birdVolume').value);showBirdControls();updateAudio();if(birdVolumes[$('birdType').value]>0){birdUntil=Math.max(birdUntil,time+12);if(soundscape)soundscape.birds(12)}};
 showBirdControls();
-function setMode(m){mode=m;manualThunderHistory=[];manualRainTarget=null;$('auto').classList.toggle('selected',m==='auto');$('manual').classList.toggle('selected',m==='manual');$('auto').setAttribute('aria-pressed',String(m==='auto'));$('manual').setAttribute('aria-pressed',String(m==='manual'));$('modeHelp').textContent=m==='auto'?'天氣自然流轉；麥克風聲音觸發可另外開啟。':'固定目前天氣；可調整雨勢、風力，麥克風聲音觸發可另外開啟。';nextEvent=time+10;if(m==='auto'){ $('preset').value='custom';resetAuto();}} $('auto').onclick=()=>setMode('auto');$('manual').onclick=()=>setMode('manual');document.querySelectorAll('[data-event]').forEach(b=>b.onclick=async()=>{try{if(paused)return;trigger(b.dataset.event)}catch(e){$('status').textContent='聲音無法啟動，請再按一次開啟聲音。'}});
+function setMode(m){mode=m;manualThunderHistory=[];manualRainTarget=null;$('auto').classList.toggle('selected',m==='auto');$('manual').classList.toggle('selected',m==='manual');$('auto').setAttribute('aria-pressed',String(m==='auto'));$('manual').setAttribute('aria-pressed',String(m==='manual'));$('modeHelp').textContent=m==='auto'?'天氣自然流轉；麥克風聲音觸發可另外開啟。':'固定目前天氣；可調整雨勢、風力，麥克風聲音觸發可另外開啟。';nextEvent=time+10;if(m==='auto'){ $('preset').value='custom';resetAuto();}} $('auto').onclick=()=>setMode('auto');$('manual').onclick=()=>setMode('manual');document.querySelectorAll('[data-event]').forEach(b=>b.onclick=async()=>{try{if(paused){$('status').textContent='目前已暫停，請先按繼續播放。';return;}await startAudio(true,false);trigger(b.dataset.event);if(Number($('volume').value)===0)$('status').textContent+=' · 自然音量目前為零，請提高音量。'}catch(e){$('status').textContent='聲音無法啟動，請再按一次開啟聲音。'}});
 canvas.onclick=e=>{if(e.clientY>H*.43){ripples.push({x:e.clientX,y:e.clientY,age:0});if(soundscape&&audioEnabled)soundscape.waterDrop(.5,{pan:e.clientX/W*2-1,large:true,depth:.8,visual:false})}};
 // Both values use the same RMS scale: 0–0.5 maps to 0–100%.
 function showInputLevel(rms=0){
@@ -709,7 +709,7 @@ async function startMic(){
     if(!navigator.mediaDevices?.getUserMedia)throw new Error('此瀏覽器不提供麥克風存取，請使用 Chrome / Safari 的 HTTPS 或 localhost 網址。');
     // Request capture directly from the click, independently of downloading rain audio.
     const capture=navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:false,autoGainControl:false}});
-    void startAudio(audioEnabled).catch(error=>{$('status').textContent='聲音引擎啟動失敗：'+error.message});
+    void startAudio(true,false).catch(error=>{$('status').textContent='聲音引擎啟動失敗：'+error.message});
     micStream=await capture;await ctx.resume();
     micAnalyser=ctx.createAnalyser();micAnalyser.fftSize=2048;
     micSource=ctx.createMediaStreamSource(micStream);micSink=ctx.createGain();micSink.gain.value=0;
