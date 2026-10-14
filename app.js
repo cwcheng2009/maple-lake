@@ -27,23 +27,28 @@ const ripples=[],leaves=[],trees=[];let seed=4821;function rand(){seed=(seed*168
 const lightning=[];
 let stormEnd=0;
 function makeBolt(x){
-  const type=Math.floor(Math.random()*3),steps=9+Math.floor(Math.random()*13);
   const top=Math.random()*.09,bottom=.29+Math.random()*.12;
-  // Small correlated changes avoid alternating wide zigzags, including on narrow screens.
-  const drift=(Math.random()-.5)*Math.min(.12,H/W*.10);
-  const stepJitter=Math.min(W*.010,H*.007)/W;
-  const points=[[x,top]];let currentX=x,bend=0;
-  for(let i=1;i<=steps;i++){
-    const progress=i/steps;
-    bend=bend*.55+(Math.random()-.5)*stepJitter;
-    currentX=Math.max(.05,Math.min(.95,currentX+drift/steps+bend));
-    points.push([currentX,top+(bottom-top)*progress]);
+  const drift=(Math.random()-.5)*Math.min(.24,H/W*.20);
+  const points=[[x,top]],end=[Math.max(.07,Math.min(.93,x+drift)),bottom];
+  // A branching, irregular midpoint path: visible bends at several scales,
+  // with strictly descending segments rather than periodic left-right zigzags.
+  function split(a,b,depth){
+    if(!depth){points.push(b);return;}
+    const f=.4+Math.random()*.2,dy=(b[1]-a[1])*H;
+    const offset=(Math.random()-.5)*dy*(.75+Math.random()*.45)/W;
+    const mid=[Math.max(.04,Math.min(.96,a[0]+(b[0]-a[0])*f+offset)),a[1]+(b[1]-a[1])*f];
+    split(a,mid,depth-1);split(mid,b,depth-1);
   }
-  const branches=[],branchCount=type===0?1+Math.floor(Math.random()*2):3+Math.floor(Math.random()*4);
-  for(let k=0;k<branchCount;k++){
-    const point=points[2+Math.floor(Math.random()*(steps-3))],direction=Math.random()<.5?-1:1;
-    const path=[point],length=2+Math.floor(Math.random()*6),spread=Math.min(.006+Math.random()*.009,H/W*.012);
-    for(let j=1;j<=length;j++)path.push([Math.max(.02,Math.min(.98,point[0]+direction*j*spread+(Math.random()-.5)*.004)),Math.min(.43,point[1]+j*(.007+Math.random()*.014))]);
+  split(points[0],end,4);
+  const branches=[],count=2+Math.floor(Math.random()*4);
+  for(let k=0;k<count;k++){
+    const at=2+Math.floor(Math.random()*(points.length-5)),origin=points[at],direction=Math.random()<.5?-1:1;
+    const path=[origin],steps=3+Math.floor(Math.random()*4);let bx=origin[0],by=origin[1];
+    for(let j=0;j<steps;j++){
+      const drop=.008+Math.random()*.018;
+      bx=Math.max(.02,Math.min(.98,bx+direction*drop*H/W*(.35+Math.random()*.9)+(Math.random()-.5)*drop*H/W*.45));
+      by=Math.min(.43,by+drop);path.push([bx,by]);
+    }
     branches.push(path);
   }
   return {points,branches,width:1.2+Math.random()*2.2,glow:12+Math.random()*24};
@@ -750,10 +755,10 @@ setInterval(()=>{
 
 // Presets adjust the environment without starting sound or requesting a microphone.
 $('preset').onchange=()=>{
- const presets={morning:{day:'day',rain:0,wind:.12,birds:[.65,.24,.12],bugs:.18},breeze:{day:'day',rain:0,wind:.48,birds:[.5,.2,.1],bugs:.25},night:{day:'night',rain:0,wind:.08,birds:[0,0,0],bugs:.65}};
+ const presets={morning:{rain:0,wind:.12,birds:[.65,.24,.12],bugs:.18},breeze:{rain:0,wind:.48,birds:[.5,.2,.1],bugs:.25},night:{rain:0,wind:.08,birds:[0,0,0],bugs:.65}};
  const p=presets[$('preset').value];if(!p)return;
  setMode('manual');manualRainTarget=null;rain=p.rain;wind=p.wind;gust=0;dryLight=1;
- $('dayMode').value=p.day;$('rain').value=rain;$('wind').value=wind;
+ $('rain').value=rain;$('wind').value=wind;
  ['sparrow','dove','crow'].forEach((type,i)=>birdVolumes[type]=p.birds[i]);insectVolumes.recorded=p.bugs;insectVolumes.cricket=0;
  birdUntil=time+12;insectUntil=time+12;showBirdControls();showInsectControls();updateAudio();
  $('modeHelp').textContent='固定情境已套用；可調整參數，或切回自動流轉。麥克風聲音觸發維持原設定。';
