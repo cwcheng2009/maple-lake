@@ -45,3 +45,5 @@ footer #footerMusic{color:#e5c69b}footer #footerMusic[aria-pressed="true"]{backg
 .events button:disabled{opacity:.5;cursor:wait}.events button:disabled span{font-size:10px}
 
 .preview-sound{padding:10px 14px;border:1px solid #c2c8a250;border-radius:8px;color:#e5c69b;font-size:12px}
+
+.guide-link{display:flex;justify-content:space-between;align-items:center;gap:10px;min-height:44px;margin:10px 0 2px;padding:8px 12px;border:1px solid #d8c59455;border-radius:9px;background:#d8c59412;color:#ebd6aa;font-size:12px;text-decoration:none}.guide-link:hover,.guide-link:focus-visible{background:#d8c59428;outline:2px solid #d8c594;outline-offset:2px}

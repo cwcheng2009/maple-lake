@@ -28,5 +28,6 @@
  button.addEventListener('click',async()=>{if(enabled){enabled=false;sync();ramp(0,800,()=>audio.pause());}else{clearTimeout(fade);try{await audio.play();enabled=true;sync();ramp(Number(slider.value));}catch{button.textContent='音樂載入失敗 · 請重試';}}});
  slider.addEventListener('input',()=>{if(enabled)ramp(Number(slider.value),150);});
  document.querySelector('.enter').addEventListener('click',e=>{if(!enabled)return;e.preventDefault();const href=e.currentTarget.href;enabled=false;sync();ramp(0,650,()=>{audio.pause();location.href=href;});});
+ document.querySelector('.entrance-guide').addEventListener('click',()=>{clearTimeout(fade);enabled=false;audio.pause();audio.volume=0;sync();});
  window.addEventListener('pagehide',()=>{clearTimeout(fade);audio.pause();});
 })();

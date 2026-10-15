@@ -810,3 +810,8 @@ setInterval(()=>{
 setInterval(()=>{const button=document.querySelector('[data-event="thunder"]'),remaining=Math.max(0,stormEnd-performance.now());button.disabled=remaining>0;button.querySelector('span').textContent=remaining>0?'稍候 '+Math.ceil(remaining/1000)+'s':'雷鳴';button.setAttribute('aria-label',remaining>0?'雷鳴冷卻中':'觸發雷鳴');},100);
 
 $('duckPreview').onclick=async()=>{try{if(paused){$('status').textContent='請先繼續播放，再試聽水鴨。';return;}await startAudio(true,false);if(!soundscape.duckRecording)await soundscape.loadWildlifeRecordings();const volume=Number($('duckVolume').value);if(!volume){$('status').textContent='水鴨音量為零，請先調高。';return;}const bird=lakeDucks.find(b=>b.state==='swim');soundscape.duckCall({pan:bird?Math.max(-1,Math.min(1,bird.x*2-1)):0},volume);$('status').textContent='試聽水鴨實錄；自動叫聲會隨游泳中的水鴨位置播放。';}catch{$('status').textContent='水鴨錄音載入失敗，請稍後重試。'}};
+
+// Keep the guide narration clear; playback resumes only when the visitor chooses.
+let guideSuspendedAudio=false;
+$('pause').addEventListener('click',()=>{if(!paused&&guideSuspendedAudio){guideSuspendedAudio=false;if(audioEnabled&&ctx?.state==='suspended')void ctx.resume();}});
+$('guideLink').addEventListener('click',()=>{if(!paused)$('pause').click();if(ctx?.state==='running'){guideSuspendedAudio=true;void ctx.suspend();}$('status').textContent='已暫停楓湖，使用說明將於新分頁開啟；返回後可按繼續播放。';});
