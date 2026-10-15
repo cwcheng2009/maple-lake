@@ -73,11 +73,12 @@ class LakeSoundscape {
         const response=await fetch(path);if(!response.ok)throw Error(id+' recording unavailable');
         const buffer=await this.ctx.decodeAudioData(await response.arrayBuffer());
         if(isThunder){const aligned=this.alignThunderAttack(buffer);this.thunderRecordings.push({id,buffer:aligned});if(id==='original')this.thunderRecording=aligned;}
+        else if(id==='duck-quack'){this.duckQuackRecording=buffer;this.addDuckQuackClip();}
         else{this.duckRecording=buffer;this.prepareDuckCalls(buffer);}
       })().catch(error=>{delete this.recordingLoads[id];throw error;});
       return this.recordingLoads[id];
     };
-    await Promise.allSettled([load('duck','assets/duck.mp3',false),load('original','assets/thunder.mp3',true),...['danilo','seth','blue'].map(id=>load(id,'assets/thunder/'+id+'.mp3',true))]);
+    await Promise.allSettled([load('duck','assets/duck.mp3',false),load('duck-quack','assets/duck-quack.mp3',false),load('original','assets/thunder.mp3',true),...['danilo','seth','blue'].map(id=>load(id,'assets/thunder/'+id+'.mp3',true))]);
   }
   chooseThunderRecording(){
     const recordings=this.thunderRecordings||[];if(!recordings.length)return this.thunderRecording?{id:'original',buffer:this.thunderRecording}:null;
@@ -107,15 +108,27 @@ class LakeSoundscape {
     const data=buffer.getChannelData(0),sr=buffer.sampleRate,candidates=[];
     for(let t=0;t<buffer.duration-2.4;t+=.25){let sum=0,n=0;for(let i=Math.floor(t*sr);i<Math.min(data.length,(t+1.2)*sr);i+=8){sum+=data[i]*data[i];n++;}candidates.push({offset:Math.max(0,t-.1),rms:Math.sqrt(sum/Math.max(1,n))});}
     candidates.sort((a,b)=>b.rms-a.rms);this.duckClips=[];
-    for(const clip of candidates){if(this.duckClips.every(c=>Math.abs(c.offset-clip.offset)>4))this.duckClips.push(clip);if(this.duckClips.length===8)break;}
+    for(const clip of candidates){if(this.duckClips.every(c=>Math.abs(c.offset-clip.offset)>4))this.duckClips.push({...clip,id:'mixed-'+this.duckClips.length});if(this.duckClips.length===8)break;}
+    this.addDuckQuackClip();
+  }
+  addDuckQuackClip(){
+    if(!this.duckQuackRecording)return;this.duckClips??=[];
+    if(this.duckClips.some(c=>c.id==='female-quack'))return;
+    const buffer=this.duckQuackRecording,data=buffer.getChannelData(0);let energy=0;
+    for(let i=0;i<data.length;i++)energy+=data[i]*data[i];
+    this.duckClips.push({id:'female-quack',buffer,offset:0,length:buffer.duration,rms:Math.sqrt(energy/Math.max(1,data.length))});
+  }
+  chooseDuckClip(){
+    const clips=this.duckClips||[],choices=clips.filter(c=>c.id!==this.lastDuckClip?.id),clip=choices[Math.floor(Math.random()*choices.length)]||clips[0];
+    this.lastDuckClip=clip;return clip;
   }
   duckCall(bird,volume){
     if(!this.active||!this.duckRecording||volume<=0)return;
-    const clips=this.duckClips||[],choices=clips.filter(c=>c!==this.lastDuckClip),clip=choices[Math.floor(Math.random()*choices.length)]||clips[0]||{offset:0,rms:.03};this.lastDuckClip=clip;
+    const clip=this.chooseDuckClip()||{offset:0,rms:.03};
     const source=this.ctx.createBufferSource(),gain=this.ctx.createGain(),pan=this.ctx.createStereoPanner(),filter=this.ctx.createBiquadFilter();
-    source.buffer=this.duckRecording;source.playbackRate.value=this.random(.94,1.06);
+    source.buffer=clip.buffer||this.duckRecording;source.playbackRate.value=this.random(.94,1.06);
     filter.type='highpass';filter.frequency.value=160;pan.pan.value=bird.pan;
-    const now=this.ctx.currentTime,length=2.4,duration=length/source.playbackRate.value,level=volume*.85*Math.min(6,.16/Math.max(.005,clip.rms));
+    const now=this.ctx.currentTime,length=clip.length||2.4,duration=length/source.playbackRate.value,level=volume*.85*Math.min(6,.16/Math.max(.005,clip.rms));
     gain.gain.setValueAtTime(0,now);gain.gain.linearRampToValueAtTime(level,now+.035);gain.gain.setValueAtTime(level,now+duration-.3);gain.gain.linearRampToValueAtTime(0,now+duration);
     source.connect(filter).connect(gain).connect(pan).connect(this.output);source.start(now,clip.offset,length);source.stop(now+duration+.02);
     source.onended=()=>{source.disconnect();filter.disconnect();gain.disconnect();pan.disconnect();};

@@ -44,3 +44,8 @@ Additional thunder recordings (2026-10-14), all CC0 1.0:
 - thunder/blue.mp3: Heavy Thunder Strike - no Rain - QUADRO.wav — BlueDelta. https://freesound.org/people/BlueDelta/sounds/446753/
 License: https://creativecommons.org/publicdomain/zero/1.0/
 Source files: publicly available Freesound HQ MP3 previews (stereo), not original PolyWAV files. Modified by trimming to main thunder attack, excerpting up to 17 seconds, normalizing loudness and fading tails. Browser varies playback rate and stereo position.
+
+Additional duck vocalization (2026-10-16):
+assets/duck-quack.mp3 — Duck Quack, OwennewO, CC0 1.0.
+https://freesound.org/people/OwennewO/sounds/719111/
+Public HQ MP3 preview; playback volume, pitch and stereo position are adjusted. The original eight excerpts from duck.mp3 remain available.
