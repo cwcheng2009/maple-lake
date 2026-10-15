@@ -1,5 +1,5 @@
 const birdFrequencies={sparrow:.5,dove:.5,crow:.2};
-const insectVolumes={recorded:.6,cricket:0},insectNames={recorded:'蟋蟀實錄',cricket:'蟋蟀模擬'};
+const insectVolumes={recorded:.4,cricket:0},insectNames={recorded:'蟋蟀實錄',cricket:'蟋蟀模擬'};
 const birdVolumes={sparrow:.65,dove:.3,crow:.3},birdNames={sparrow:'麻雀',dove:'珠頸斑鳩',crow:'灰背鴉'};
 'use strict';
 const $=id=>document.getElementById(id), canvas=$('scene'),c=canvas.getContext('2d');
